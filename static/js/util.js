@@ -17,11 +17,12 @@ export const per100 = (ppg) => (ppg == null ? "" : `${money(ppg * 100)}/100g`);
 
 export const plural = (n, one, many = one + "s") => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
+// Colour bands for the score (top ~5% green, top ~25% light green, …).
 export function ratingColor(r) {
   if (r == null) return "var(--muted)";
-  if (r >= 4.6) return "var(--r5)";
-  if (r >= 4.3) return "var(--r4)";
-  if (r >= 4.0) return "var(--r3)";
+  if (r >= 4.35) return "var(--r5)";
+  if (r >= 4.1) return "var(--r4)";
+  if (r >= 3.85) return "var(--r3)";
   if (r >= 3.5) return "var(--r2)";
   return "var(--r1)";
 }

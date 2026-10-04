@@ -1,6 +1,6 @@
 // HTML builders. Everything here is a pure function of data -> markup;
 // event wiring lives in app.js (delegated listeners on stable containers).
-import { DATA, PACKS, RATING_STEPS, COUNT_STEPS, STRENGTHS, APPROX, LOW_CONF, counts } from "./catalog.js";
+import { DATA, PACKS, RATING_STEPS, COUNT_STEPS, STRENGTHS, APPROX, counts } from "./catalog.js";
 import { esc, icon, money, weight, per100, ratingColor, plural, ago } from "./util.js";
 import * as cart from "./cart.js";
 
@@ -21,12 +21,12 @@ export const thumb = (p, size = 84) =>
       : ""
   }<span class="ph"${p.img ? " hidden" : ""}>${esc(initials(p.n))}</span></div>`;
 
-function ratingBadge(h) {
-  if (h?.r != null) {
-    const low = h.rc < LOW_CONF;
-    return `<span class="rating${low ? " low" : ""}" style="--rc:${low ? "var(--muted)" : ratingColor(h.r)}" title="${plural(h.rc, "rating")} on HTReviews">${icon("star")}${h.r.toFixed(1)}</span>`;
-  }
-  return `<span class="rating none">${h ? "No ratings" : "Unrated"}</span>`;
+// The badge shows the score: the HTReviews average adjusted for how many
+// people rated it (build.py). The raw average is on the product page.
+function ratingBadge(p) {
+  if (p.score != null)
+    return `<span class="rating" style="--rc:${ratingColor(p.score)}" title="HTReviews ${p.h.r.toFixed(1)} from ${plural(p.h.rc, "rating")}">${icon("star")}${p.score.toFixed(1)}</span>`;
+  return `<span class="rating none">${p.h ? "No ratings" : "Unrated"}</span>`;
 }
 
 export function strengthBars(st, label = true) {
@@ -68,7 +68,7 @@ export function card(p) {
   return `<article class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" tabindex="0" role="button">
   ${thumb(p)}
   <div class="card-body">
-    <div class="card-title"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(h)}</div>
+    <div class="card-title"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     <div class="line2"><div class="sub dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l)])}</div>
     ${meta.length || fl ? `<div class="meta">${meta.join('<span class="sep">·</span>')}${fl}</div>` : ""}</div>
   </div>
@@ -76,7 +76,7 @@ export function card(p) {
   <div class="card-desk">${h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : ""}</div>
   <div class="list-right"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${
     p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""
-  }</span>${ratingBadge(h)}</div>
+  }</span>${ratingBadge(p)}</div>
 </article>`;
 }
 
@@ -111,19 +111,19 @@ export function detail(p) {
 
   let rating;
   if (h) {
-    const low = h.r != null && h.rc < LOW_CONF;
-    const rc = low ? "var(--muted)" : ratingColor(h.r);
     const facts = [
       ["Strength", h.st ? `${strengthBars(h.st, false)} ${STRENGTHS[h.st - 1]}` : "Not rated"],
       ["Status", esc(h.stat || "Unknown")],
       ["Line on HTReviews", esc(h.line || "Main")],
     ];
     rating = `<div class="d-block">
-      <h3>HTReviews <a class="linkish" href="${HTR}${esc(h.u)}" target="_blank" rel="noopener">Open ${icon("ext", "xs")}</a></h3>
+      <h3>Rating <a class="linkish" href="${HTR}${esc(h.u)}" target="_blank" rel="noopener">HTReviews ${icon("ext", "xs")}</a></h3>
       ${
-        h.r != null
-          ? `<div class="d-score" style="--rc:${rc}"><div class="big">${h.r.toFixed(1)}</div><div><div class="stars">${stars(h.r)}</div><small>${plural(h.rc, "rating")} · ${plural(h.rv, "review")}</small></div></div>
-             ${low ? `<p class="caution">Only ${plural(h.rc, "rating")} so far, so this average isn't reliable yet.</p>` : ""}`
+        p.score != null
+          ? `<div class="d-score" style="--rc:${ratingColor(p.score)}"><div class="big">${p.score.toFixed(1)}</div><div>
+               <div class="stars">${stars(p.score)}</div>
+               <small>HTReviews average <b>${h.r.toFixed(1)}</b> from ${plural(h.rc, "rating")}</small></div></div>
+             <p class="hint score-note">Score = that average, pulled toward the typical ${DATA.prior?.toFixed(1) || "4.2"} until enough people have rated it.</p>`
           : `<p class="hint">Listed on HTReviews but nobody has rated it yet.</p>`
       }
       <dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
@@ -166,8 +166,8 @@ export function detail(p) {
 }
 
 // ── filters ────────────────────────────────────────────────────────────
-const chip = (label, attrs, on, extra = "") =>
-  `<button type="button" class="chip" aria-pressed="${on}" ${attrs}>${extra}${label}</button>`;
+const chip = (label, attrs, on, extra = "", zero = false) =>
+  `<button type="button" class="chip${zero && !on ? " zero" : ""}" aria-pressed="${on}" ${attrs}>${extra}${label}</button>`;
 const n = (v) => (v != null ? `<span class="n">${v}</span>` : "");
 
 export const SECTION_TITLES = { all: "Filters", brands: "Brands", rating: "Rating", flavor: "Flavor profile" };
@@ -178,7 +178,25 @@ function originSection(f) {
     .join("")}</div></div>`;
 }
 
-function brandSection(f, brandQuery, showAll, heading = true) {
+function brandSummary(f) {
+  const byBrand = new Map();
+  for (const x of f.brands) {
+    const [b, l] = x.split("\u0001");
+    if (!byBrand.has(b)) byBrand.set(b, []);
+    if (l !== undefined) byBrand.get(b).push(l || "Main");
+  }
+  if (!byBrand.size) return "All brands";
+  return [...byBrand].map(([b, ls]) => (ls.length ? `${b} (${ls.join(", ")})` : b)).join(", ");
+}
+
+/** Brand picker. collapsible=true renders a summary row that expands. */
+function brandSection(f, brandQuery, showAll, { collapsible = false, open = true } = {}) {
+  const head = collapsible
+    ? `<button type="button" class="fsum" data-act="toggle-brands" aria-expanded="${open}">
+        <span><span class="fsum-t">Brands</span><span class="fsum-v${f.brands.size ? " on" : ""}">${esc(brandSummary(f))}</span></span>
+        ${icon("chev", "sm caret")}</button>`
+    : "";
+  if (collapsible && !open) return `<div class="fsec" id="f-brands">${head}</div>`;
   const bc = counts(f, "brands", (p) => [p.b, `${p.b}\u0001${p.l}`]);
   const q = brandQuery.trim().toLowerCase();
   const names = Object.keys(DATA.brands).sort((a, b) => a.localeCompare(b));
@@ -203,30 +221,26 @@ function brandSection(f, brandQuery, showAll, heading = true) {
             .map((l) => chip(esc(l || "Main") + n(bc.get(`${b}\u0001${l}`) || 0), `data-f="brands" data-op="line" data-v="${esc(`${b}\u0001${l}`)}"`, f.brands.has(`${b}\u0001${l}`)))
             .join("")}</div>`
         : "";
-    const country = f.origin === "ru" ? "" : DATA.brands[b].country;
+    const sub = [f.origin === "ru" ? "" : DATA.brands[b].country, DATA.brands[b].htr ? "" : "not on HTReviews"].filter(Boolean).join(" · ");
     return `<div class="brand-row${sel ? " on" : ""}${c ? "" : " zero"}">
       <button type="button" class="brow" data-f="brands" data-op="row" data-v="${esc(b)}" aria-pressed="${sel}">
         <span class="box ${whole ? "on" : sel ? "part" : ""}">${icon("check")}</span>
-        <span class="bname">${esc(b)}${country ? `<small>${esc(country)}${DATA.brands[b].htr ? "" : " · not on HTReviews"}</small>` : DATA.brands[b].htr ? "" : "<small>not on HTReviews</small>"}</span>
+        <span class="bname">${esc(b)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
         <span class="n">${c}</span>
       </button>${lineChips}</div>`;
   };
-  const chosen = [...new Set([...f.brands].map((x) => x.split("\u0001")[0]))];
-  return `<div class="fsec" id="f-brands">
-    ${heading ? `<h4>Brands ${f.brands.size ? `<button class="linkish" data-act="clear-brands">Clear</button>` : ""}</h4>` : ""}
+  return `<div class="fsec" id="f-brands">${head}
     <div class="brand-search-wrap">${icon("search", "sm")}<input class="brand-search" id="brand-q" type="search" placeholder="Find a brand" value="${esc(brandQuery)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
-    ${!heading && chosen.length ? `<p class="hint picked">${chosen.length === 1 ? "Selected: " : `${chosen.length} selected: `}${chosen.map(esc).join(", ")} <button class="linkish" data-act="clear-brands">Clear</button></p>` : ""}
     <div class="brandlist">${visible.map(row).join("") || `<p class="hint">No brand matches “${esc(brandQuery)}”.</p>`}</div>
     ${hidden.length ? `<button class="linkish more" data-act="all-brands">Show ${hidden.length} more ${hidden.length === 1 ? "brand" : "brands"} with no matches</button>` : ""}
   </div>`;
 }
 
-function ratingSection(f, heading = true) {
-  return `<div class="fsec">${heading ? "<h4>Minimum rating</h4>" : "<h4>Minimum rating</h4>"}
-    <div class="segmented">${RATING_STEPS.map((r) => `<button type="button" data-f="rmin" data-v="${r}" aria-pressed="${f.rmin === r}">${r ? `${r}+` : "Any"}</button>`).join("")}</div>
-    <h4 class="gap">Number of ratings</h4>
+function ratingSection(f) {
+  return `<div class="fsec"><h4>Minimum score</h4>
+    <div class="segmented">${RATING_STEPS.map((r) => `<button type="button" data-f="rmin" data-v="${r}" aria-pressed="${f.rmin === r}">${r ? r.toFixed(1) + "+" : "Any"}</button>`).join("")}</div>
+    <h4 class="gap">At least this many ratings</h4>
     <div class="segmented">${COUNT_STEPS.map((c) => `<button type="button" data-f="rcmin" data-v="${c}" aria-pressed="${f.rcmin === c}">${c ? `${c}+` : "Any"}</button>`).join("")}</div>
-    <p class="hint gap">A minimum rating skips flavors with fewer than ${LOW_CONF} ratings: one 5.0 says little.</p>
   </div>`;
 }
 
@@ -236,8 +250,7 @@ function flavorSection(f) {
     .filter((g) => gc.get(g.key) || f.groups.has(g.key))
     .map((g) => chip(esc(g.key) + n(gc.get(g.key) || 0), `data-f="groups" data-v="${esc(g.key)}"`, f.groups.has(g.key), `<span class="dot" style="--c:${g.color}"></span>`))
     .join("");
-  return `<div class="fsec"><h4>Flavor profile ${f.groups.size ? `<button class="linkish" data-act="clear-groups">Clear</button>` : ""}</h4><div class="fchips">${groups}</div>
-    <p class="hint gap">From the flavor tags HTReviews users assign. Picking several shows flavors with any of them.</p></div>`;
+  return `<div class="fsec"><h4>Flavor profile ${f.groups.size ? `<button class="linkish" data-act="clear-groups">Clear</button>` : ""}</h4><div class="fchips">${groups}</div></div>`;
 }
 
 function trackingNote() {
@@ -256,65 +269,56 @@ function moreSections(f) {
   const nNew = counts(f, "isNew", (p) => (p.isNew ? ["y"] : [])).get("y") || 0;
   const nBack = counts(f, "isBack", (p) => (p.isBack ? ["y"] : [])).get("y") || 0;
   const since = trackingNote();
-  const sw = (key, label, hint) =>
-    `<label class="switch"><span>${label}${hint ? `<small>${hint}</small>` : ""}</span><input type="checkbox" data-f="${key}" ${f[key] ? "checked" : ""}></label>`;
+  const sw = (key, label, hint, count) =>
+    `<label class="switch"><span class="sw-text"><span class="sw-label">${label}${count != null ? `<span class="n">${count}</span>` : ""}</span>${hint ? `<small>${hint}</small>` : ""}</span><input type="checkbox" data-f="${key}" ${f[key] ? "checked" : ""}></label>`;
   return `
   <div class="fsec"><h4>Availability</h4>
     ${sw("stock", "In stock only")}
-    ${sw("isNew", `New arrivals${n(nNew)}`, `First listed in the last 14 days · tracked since ${since}`)}
-    ${sw("isBack", `Back in stock${n(nBack)}`, `Restocked in the last 7 days · tracked since ${since}`)}
+    ${sw("isNew", "New arrivals", "First listed in the last 14 days", nNew)}
+    ${sw("isBack", "Back in stock", "Restocked in the last 7 days", nBack)}
+    ${since ? `<p class="hint">WHM doesn't publish listing dates; this app has tracked new listings and restocks since ${since}.</p>` : ""}
   </div>
-  <div class="fsec"><h4>Strength</h4><div class="fchips">${STRENGTHS.map((s, i) => chip(esc(s) + n(sc.get(i + 1) || 0), `data-f="strength" data-v="${i + 1}"`, f.strength.has(i + 1))).join("")}</div></div>
-  <div class="fsec"><h4>Pack size</h4><div class="fchips">${PACKS.map(([k, label]) => chip(esc(label) + n(pc.get(k) || 0), `data-f="packs" data-v="${k}"`, f.packs.has(k))).join("")}</div></div>
+  <div class="fsec"><h4>Strength</h4><div class="fchips">${STRENGTHS.map((s, i) => chip(esc(s) + n(sc.get(i + 1) || 0), `data-f="strength" data-v="${i + 1}"`, f.strength.has(i + 1), "", !sc.get(i + 1))).join("")}</div></div>
+  <div class="fsec"><h4>Pack size</h4><div class="fchips">${PACKS.map(([k, label]) => chip(esc(label) + n(pc.get(k) || 0), `data-f="packs" data-v="${k}"`, f.packs.has(k), "", !pc.get(k))).join("")}</div></div>
   <div class="fsec"><h4>HTReviews</h4><div class="fchips">${[["", "All"], ["rated", "Rated"], ["unrated", "Not on HTReviews"], ["review", "Needs a match check"]].map(([v, l]) => chip(l, `data-f="rated" data-v="${v}"`, f.rated === v)).join("")}</div></div>`;
 }
 
 /** Filter panel. section: "all" (sidebar / full sheet), "brands", "rating", "flavor". */
-export function filters(f, { section = "all", brandQuery = "", showAllBrands = false } = {}) {
-  if (section === "brands") return brandSection(f, brandQuery, showAllBrands, false);
-  if (section === "rating") return ratingSection(f, false);
+export function filters(f, { section = "all", brandQuery = "", showAllBrands = false, brandsOpen = false, sidebar = false } = {}) {
+  if (section === "brands") return brandSection(f, brandQuery, showAllBrands);
+  if (section === "rating") return ratingSection(f);
   if (section === "flavor") return flavorSection(f);
-  return `<div class="fsec-top"><span>Filters</span><button class="linkish" data-act="reset">Reset all</button></div>
-    ${originSection(f)}${brandSection(f, brandQuery, showAllBrands)}${ratingSection(f)}${flavorSection(f)}${moreSections(f)}`;
+  return `${sidebar ? `<div class="fsec-top"><span>Filters</span><button class="linkish" data-act="reset">Reset all</button></div>` : ""}
+    ${originSection(f)}${brandSection(f, brandQuery, showAllBrands, { collapsible: true, open: brandsOpen })}${ratingSection(f)}${flavorSection(f)}${moreSections(f)}`;
 }
 
-export function quickbar(f, active) {
-  const brands = [...new Set([...f.brands].map((x) => x.split("\u0001")[0]))];
+/** Label for the rating chip, e.g. "★ 4.3+", "20+ ratings", "★ 4.3+ · 20+ ratings". */
+function ratingLabel(f) {
+  const parts = [];
+  if (f.rmin) parts.push(`${f.rmin.toFixed(1)}+`);
+  if (f.rcmin) parts.push(`${f.rcmin}+ ratings`);
+  return parts.length ? parts.join(" · ") : "Rating";
+}
+
+export function quickbar(f, active, anyActive) {
+  const brands = brandSummary(f);
   const groups = [...f.groups];
   const nNew = counts(f, "isNew", (p) => (p.isNew ? ["y"] : [])).get("y") || 0;
   const nBack = counts(f, "isBack", (p) => (p.isBack ? ["y"] : [])).get("y") || 0;
   const caret = icon("chev", "xs caret");
+  // One bar: every chip shows its current value, so there's no separate
+  // "applied filters" row.
   return [
     `<button type="button" class="chip icon-chip${active ? " on" : ""}" data-act="filters" aria-label="All filters">${icon("sliders", "sm")}${active ? `<span class="n">${active}</span>` : ""}</button>`,
-    chip(`${brands.length === 1 ? esc(brands[0]) : brands.length ? `${brands.length} brands` : "Brand"}${caret}`, `data-act="sec" data-sec="brands"`, brands.length > 0),
-    chip(`${icon("star", "xs")}${f.rmin ? `${f.rmin}+` : "Rating"}${f.rcmin ? ` · ${f.rcmin}+` : ""}${caret}`, `data-act="sec" data-sec="rating"`, !!(f.rmin || f.rcmin)),
+    chip(`<span class="clip">${f.brands.size ? esc(brands) : "Brand"}</span>${caret}`, `data-act="sec" data-sec="brands"`, f.brands.size > 0),
+    chip(`${icon("star", "xs")}${ratingLabel(f)}${caret}`, `data-act="sec" data-sec="rating"`, !!(f.rmin || f.rcmin)),
     chip("Russian", `data-f="origin" data-v="ru"`, f.origin === "ru"),
-    chip(`${groups.length === 1 ? esc(groups[0]) : groups.length ? `${groups.length} flavors` : "Flavor"}${caret}`, `data-act="sec" data-sec="flavor"`, groups.length > 0),
+    chip(`<span class="clip">${groups.length ? esc(groups.join(", ")) : "Flavor"}</span>${caret}`, `data-act="sec" data-sec="flavor"`, groups.length > 0),
     chip("In stock", `data-f="stock"`, f.stock),
     nNew || f.isNew ? chip(`New${n(nNew)}`, `data-f="isNew"`, f.isNew) : "",
     nBack || f.isBack ? chip(`Back in stock${n(nBack)}`, `data-f="isBack"`, f.isBack) : "",
+    anyActive ? `<button type="button" class="chip clear-chip" data-act="reset">Clear all</button>` : "",
   ].join("");
-}
-
-export function pills(f) {
-  const out = [];
-  const pill = (label, attrs) => `<button type="button" class="pill" ${attrs}>${label}${icon("x")}</button>`;
-  if (f.q) out.push(pill(`“${esc(f.q)}”`, `data-clear="q"`));
-  for (const b of f.brands) {
-    const [brand, line] = b.split("\u0001");
-    out.push(pill(esc(line === undefined ? brand : `${brand} · ${line || "Main"}`), `data-clear="brands" data-v="${esc(b)}"`));
-  }
-  for (const g of f.groups) out.push(pill(esc(g), `data-clear="groups" data-v="${esc(g)}"`));
-  for (const s of f.strength) out.push(pill(STRENGTHS[s - 1], `data-clear="strength" data-v="${s}"`));
-  for (const k of f.packs) out.push(pill(PACKS.find((p) => p[0] === k)[1], `data-clear="packs" data-v="${k}"`));
-  if (f.rmin) out.push(pill(`★ ${f.rmin}+`, `data-clear="rmin"`));
-  if (f.rcmin) out.push(pill(`${f.rcmin}+ ratings`, `data-clear="rcmin"`));
-  if (f.isNew) out.push(pill("New", `data-clear="isNew"`));
-  if (f.isBack) out.push(pill("Back in stock", `data-clear="isBack"`));
-  if (f.origin) out.push(pill(f.origin === "ru" ? "Russian brands" : "Other brands", `data-clear="origin"`));
-  if (f.rated) out.push(pill({ rated: "Rated", unrated: "Not on HTReviews", review: "Needs a match check" }[f.rated], `data-clear="rated"`));
-  if (out.length > 1) out.push(`<button type="button" class="pill clear" data-act="reset">Clear all</button>`);
-  return out.join("");
 }
 
 // ── shopping list ──────────────────────────────────────────────────────
@@ -386,10 +390,11 @@ export function infoView(st, token) {
       </dl>
       <p style="margin-top:12px"><button class="btn sm" data-act="review">${icon("wrench", "sm")} Review uncertain matches</button></p>
     </div>
-    <div class="d-block"><h3>How “Best rated” works</h3>
-      <p class="hint">A 5.0 from two people says less than a 4.7 from three hundred. <b>Best rated</b> blends each flavor's HTReviews
-      average with the overall average, weighted by how many ratings it has, so well-loved flavors with lots of ratings come first.
-      <b>Highest rating</b> sorts by the raw average, with flavors under ${LOW_CONF} ratings (shown in grey) last.</p>
+    <div class="d-block"><h3>How the score works</h3>
+      <p class="hint">A 5.0 from one person says less than a 4.7 from three hundred. The ★ score on each flavor is its HTReviews
+      average blended with the typical rating (${DATA?.prior?.toFixed(2) ?? "≈4.2"}) as if ${DATA?.prior_weight ?? 15} extra people had rated it
+      average. With many ratings the score is close to the real average; with few it stays near typical.
+      Sorting, the score filter and the badge all use this one number; each product page also shows the raw HTReviews average.</p>
     </div>
     <div class="d-block"><h3>Refresh now</h3>
       ${st.admin_locked ? `<p class="hint">Refreshing and fixing matches need the admin token.</p><input class="field" id="admin-token" type="password" placeholder="Admin token" value="${esc(token)}" autocomplete="off"><div style="height:10px"></div>` : ""}

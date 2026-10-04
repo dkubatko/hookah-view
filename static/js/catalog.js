@@ -3,7 +3,6 @@ import { fold } from "./util.js";
 
 export const SORTS = [
   ["best", "Best rated"],
-  ["rating", "Highest rating"],
   ["popular", "Most rated"],
   ["value", "Price per 100g"],
   ["price", "Lowest price"],
@@ -20,11 +19,9 @@ export const PACKS = [
   ["xl", "1kg", (g) => g > 300],
 ];
 
-export const RATING_STEPS = [0, 4, 4.3, 4.5, 4.7];
-// A rating from fewer people than this is shown greyed out, sorts last under
-// "Highest rating" and doesn't pass a minimum-rating filter.
-export const LOW_CONF = 5;
-export const trusted = (p) => !!p.h?.r && p.h.rc >= LOW_CONF;
+// Steps for the score filter (the score is the HTReviews average adjusted
+// for how many people rated it; see build.py).
+export const RATING_STEPS = [0, 4, 4.2, 4.3, 4.4, 4.5];
 export const COUNT_STEPS = [0, 5, 20, 50, 100];
 export const NEW_DAYS = 14;
 export const BACK_DAYS = 7;
@@ -104,7 +101,7 @@ const PREDICATES = {
     const sizes = f.stock ? p.s.filter((s) => s.st) : p.s;
     return PACKS.some(([k, , test]) => f.packs.has(k) && sizes.some((s) => test(s.g)));
   },
-  rmin: (f, p) => !f.rmin || (trusted(p) && p.h.r >= f.rmin),
+  rmin: (f, p) => !f.rmin || (p.score ?? 0) >= f.rmin,
   rcmin: (f, p) => !f.rcmin || (p.h?.rc ?? 0) >= f.rcmin,
   isNew: (f, p) => !f.isNew || p.isNew,
   isBack: (f, p) => !f.isBack || p.isBack,
@@ -139,8 +136,6 @@ export function sort(list, how, q = "") {
   if (terms.length) for (const p of list) p.rel = relevance(p, terms);
   const cmp = {
     best: (a, b) => nullsLast(b.score) - nullsLast(a.score) || (b.h?.rc ?? 0) - (a.h?.rc ?? 0),
-    rating: (a, b) =>
-      trusted(b) - trusted(a) || nullsLast(b.h?.r) - nullsLast(a.h?.r) || (b.h?.rc ?? 0) - (a.h?.rc ?? 0),
     popular: (a, b) => (b.h?.rc ?? -1) - (a.h?.rc ?? -1),
     value: (a, b) => (a.ppg ?? 1e9) - (b.ppg ?? 1e9),
     price: (a, b) => a.pmin - b.pmin,
@@ -160,8 +155,10 @@ export function counts(f, key, keyOf) {
 }
 
 // Filters without their own quick chip (the sliders button shows this count).
-export const activeCount = (f) =>
-  f.strength.size + f.packs.size + (f.rcmin && !f.rmin ? 1 : 0) + (f.origin === "other" ? 1 : 0) + (f.rated ? 1 : 0);
+export const activeCount = (f) => f.strength.size + f.packs.size + (f.origin === "other" ? 1 : 0) + (f.rated ? 1 : 0);
+
+export const anyActive = (f) =>
+  !!(f.q || f.brands.size || f.groups.size || f.strength.size || f.packs.size || f.rmin || f.rcmin || f.isNew || f.isBack || f.origin || f.rated);
 
 // Stock and origin are sticky between visits (e.g. "always Russian only").
 const PREFS = "hs_prefs_v2";

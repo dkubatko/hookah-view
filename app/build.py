@@ -308,4 +308,6 @@ def build(
         "stats": stats,
         "threshold": THRESHOLD,
         "tracking_since": baseline,
+        "prior": round(prior, 3),
+        "prior_weight": PRIOR_WEIGHT,
     }

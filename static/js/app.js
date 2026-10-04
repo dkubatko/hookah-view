@@ -12,7 +12,6 @@ const els = {
   sentinel: $("#sentinel"),
   empty: $("#empty"),
   count: $("#count"),
-  pills: $("#pills"),
   sort: $("#sort"),
   sortLabel: $("#sort-label"),
   sidebar: $("#sidebar"),
@@ -28,6 +27,9 @@ let results = [];
 let shown = 0;
 let brandQuery = "";
 let showAllBrands = false;
+// The brand list in the full filter panel is collapsed to a summary row.
+let sidebarBrandsOpen = true;
+let sheetBrandsOpen = false;
 let section = "all"; // which part of the filters the filter sheet shows
 let sheetKind = null; // "detail" | "filters" | "cart" | "info" | "fix"
 let current = null; // product shown in the detail sheet
@@ -52,7 +54,6 @@ function apply({ keepScroll = false } = {}) {
     els.empty.innerHTML = `<h3>No flavors match</h3><p>Try fewer filters${f.stock ? " or include sold-out flavors" : ""}.</p>
       <button class="btn" data-act="reset">Clear filters</button>${f.stock ? ` <button class="btn" data-f="stock">Show sold out</button>` : ""}`;
   }
-  els.pills.innerHTML = V.pills(f);
   renderFilters();
   syncUrl();
   if (!keepScroll) window.scrollTo({ top: 0 });
@@ -67,19 +68,19 @@ function more() {
 
 function renderFilters() {
   const active = C.activeCount(f);
-  els.quickbar.innerHTML = V.quickbar(f, active);
+  els.quickbar.innerHTML = V.quickbar(f, active, C.anyActive(f));
   // Re-rendering replaces the brand search box; keep focus and caret.
   const hadFocus = document.activeElement?.id === "brand-q";
   const caret = hadFocus ? document.activeElement.selectionStart : 0;
   if (getComputedStyle(els.sidebar).display !== "none") {
     const top = els.sidebar.scrollTop;
-    els.sidebar.innerHTML = V.filters(f, { brandQuery, showAllBrands });
+    els.sidebar.innerHTML = V.filters(f, { brandQuery, showAllBrands, brandsOpen: sidebarBrandsOpen, sidebar: true });
     els.sidebar.scrollTop = top;
   }
   if (sheetKind === "filters") {
     const body = $(".sheet-body", els.sheet);
     const top = body.scrollTop;
-    body.innerHTML = V.filters(f, { section, brandQuery, showAllBrands });
+    body.innerHTML = V.filters(f, { section, brandQuery, showAllBrands, brandsOpen: sheetBrandsOpen });
     body.scrollTop = top;
     $("[data-act=show]", els.sheet).textContent = results.length ? `Show ${plural(results.length, "flavor")}` : "No matches";
   }
@@ -165,7 +166,8 @@ function openSheet(kind, { title = "", body = "", foot = "", cls = "" }, { push 
   // Back button / swipe-back closes the sheet instead of leaving the page.
   if (push && !wasOpen) history.pushState({ sheet: kind }, "", location.href.split("#")[0] + (kind === "detail" ? `#p=${encodeURIComponent(current.k)}` : ""));
   else if (kind === "detail") history.replaceState({ sheet: kind }, "", location.href.split("#")[0] + `#p=${encodeURIComponent(current.k)}`);
-  setTimeout(() => $(".sheet-close", els.sheet)?.focus({ preventScroll: true }), 50);
+  // Focus the dialog itself (keyboard users can Tab on) without a ring on the X.
+  setTimeout(() => els.sheet.focus({ preventScroll: true }), 50);
 }
 
 function updateSheet({ title, body, foot }) {
@@ -200,7 +202,12 @@ function closeSheet({ fromHistory = false } = {}) {
 }
 
 window.addEventListener("popstate", () => {
-  if (sheetKind && !history.state?.sheet) closeSheet({ fromHistory: true });
+  if (sheetKind && !history.state?.sheet) {
+    closeSheet({ fromHistory: true });
+    // Back restored the URL from before the sheet opened; filters changed
+    // inside the sheet must be written back.
+    syncUrl();
+  }
   else if (!sheetKind && location.hash.startsWith("#p=")) openFromHash();
 });
 
@@ -217,11 +224,12 @@ function openFromHash() {
 
 function openFilters(sec = "all") {
   section = sec;
+  sheetBrandsOpen = false;
   const clear = { all: "reset", brands: "clear-brands", rating: "clear-rating", flavor: "clear-groups" }[sec];
   openSheet("filters", {
     title: V.SECTION_TITLES[sec],
-    cls: `filters-${sec}`,
-    body: V.filters(f, { section: sec, brandQuery, showAllBrands }),
+    cls: `filters-${sec}${sec === "brands" ? " full" : ""}`,
+    body: V.filters(f, { section: sec, brandQuery, showAllBrands, brandsOpen: sheetBrandsOpen }),
     foot: `<button class="btn" data-act="${clear}">${sec === "all" ? "Reset all" : "Clear"}</button><button class="btn primary" data-act="show">Show ${plural(results.length, "flavor")}</button>`,
   });
 }
@@ -417,7 +425,11 @@ document.addEventListener("click", async (e) => {
     apply();
   } else if (act === "filters") openFilters("all");
   else if (act === "sec") openFilters(a.dataset.sec);
-  else if (act === "all-brands") {
+  else if (act === "toggle-brands") {
+    if (a.closest("#sidebar")) sidebarBrandsOpen = !sidebarBrandsOpen;
+    else sheetBrandsOpen = !sheetBrandsOpen;
+    renderFilters();
+  } else if (act === "all-brands") {
     showAllBrands = true;
     renderFilters();
   } else if (act === "clear-brands") {
@@ -504,6 +516,24 @@ document.addEventListener("keydown", (e) => {
     onFilter(t);
   }
 });
+
+// iOS keeps fixed elements pinned to the layout viewport, so with the
+// keyboard up a bottom sheet ends up behind it.  Track the visual viewport
+// and fit the open sheet into the space above the keyboard.
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const sync = () => {
+    const kb = window.innerHeight - vv.height > 120 && !matchMedia("(min-width:1080px)").matches;
+    document.documentElement.style.setProperty("--vvh", `${vv.height}px`);
+    document.documentElement.style.setProperty("--vvt", `${vv.offsetTop}px`);
+    els.sheet.classList.toggle("kb", kb && !!sheetKind);
+    if (kb && document.activeElement?.matches(".sheet input")) {
+      document.activeElement.scrollIntoView({ block: "nearest" });
+    }
+  };
+  vv.addEventListener("resize", sync);
+  vv.addEventListener("scroll", sync);
+}
 
 new IntersectionObserver((entries) => entries.some((x) => x.isIntersecting) && more(), { rootMargin: "1200px" }).observe(els.sentinel);
 

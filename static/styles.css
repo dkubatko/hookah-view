@@ -653,3 +653,43 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 .card-foot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .card-foot .tags { flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
 @media (min-width: 1080px) { .sheet.detail .sheet-body { padding-top: 18px; } .sheet.detail .sheet-head { top: 16px; } }
+
+/* ── round 3 ─────────────────────────────────────────────────────────── */
+/* brand picker opened from the Brand chip: full height, search on top */
+@media (max-width: 1079px) {
+  .sheet.full { top: calc(env(safe-area-inset-top) + 10px); max-height: none; }
+  /* keyboard up: fit the sheet into the visible area above it */
+  .sheet.kb {
+    top: var(--vvt, 0); bottom: auto; height: var(--vvh, 100%); max-height: var(--vvh, 100%);
+    border-radius: 0; animation: none; padding-bottom: 0;
+  }
+  .sheet.kb .sheet-foot, .sheet.kb .sheet-grab { display: none; }
+  .sheet.kb .sheet-head { padding-top: 10px; }
+}
+
+/* collapsible summary row (brands in the full filter panel) */
+.fsum {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 4px 0; border: 0; background: transparent; color: var(--text); text-align: left;
+}
+.fsum > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fsum-t { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fsum-v { font-size: 15px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.fsum-v.on { color: var(--accent); }
+.fsum .caret { transition: transform .2s; }
+.fsum[aria-expanded="true"] .caret { transform: rotate(-90deg); }
+.fsum + .brand-search-wrap { margin-top: 8px; }
+
+/* availability switches */
+.switch .sw-text { display: flex; flex-direction: column; min-width: 0; }
+.sw-label { display: inline-flex; align-items: baseline; gap: 8px; }
+.sw-label .n { color: var(--muted); font-size: 13px; }
+.fsec > .hint { margin-top: 8px; }
+
+/* quick filter bar: chips carry their values */
+.chip .clip { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clear-chip { border-color: transparent; background: transparent; color: var(--accent); font-weight: 650; }
+.score-note { margin: 10px 0 0; font-size: 12.5px; }
+.d-score small b { color: var(--text); }
+.chip.zero { opacity: .45; }
+.sheet:focus { outline: none; }
