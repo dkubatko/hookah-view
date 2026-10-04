@@ -307,4 +307,5 @@ def build(
         "tag_group": tag_group,
         "stats": stats,
         "threshold": THRESHOLD,
+        "tracking_since": baseline,
     }

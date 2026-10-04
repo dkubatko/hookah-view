@@ -14,6 +14,7 @@ const els = {
   count: $("#count"),
   pills: $("#pills"),
   sort: $("#sort"),
+  sortLabel: $("#sort-label"),
   sidebar: $("#sidebar"),
   quickbar: $("#quickbar"),
   sheet: $("#sheet"),
@@ -21,13 +22,13 @@ const els = {
   cartCount: $("#cart-count"),
 };
 
-let f = C.fromQuery(location.search);
-if (!location.search && localStorage.getItem("hs_stock") === "0") f.stock = false;
+let f = location.search ? C.fromQuery(location.search) : C.loadPrefs(C.defaults());
 let view = localStorage.getItem("hs_view") || "grid";
 let results = [];
 let shown = 0;
 let brandQuery = "";
-const openBrands = new Set();
+let showAllBrands = false;
+let section = "all"; // which part of the filters the filter sheet shows
 let sheetKind = null; // "detail" | "filters" | "cart" | "info" | "fix"
 let current = null; // product shown in the detail sheet
 let fixState = null; // { items, q }
@@ -36,6 +37,7 @@ let status = {};
 // ── rendering ──────────────────────────────────────────────────────────
 function apply({ keepScroll = false } = {}) {
   C.DATA.reviewMode = f.rated === "review";
+  C.DATA.stockOnly = f.stock;
   results = C.sort(C.filter(f), f.sort, f.q);
   shown = 0;
   els.grid.innerHTML = "";
@@ -66,21 +68,20 @@ function more() {
 function renderFilters() {
   const active = C.activeCount(f);
   els.quickbar.innerHTML = V.quickbar(f, active);
-  const html = V.filters(f, { brandQuery, openBrands });
   // Re-rendering replaces the brand search box; keep focus and caret.
   const hadFocus = document.activeElement?.id === "brand-q";
   const caret = hadFocus ? document.activeElement.selectionStart : 0;
   if (getComputedStyle(els.sidebar).display !== "none") {
     const top = els.sidebar.scrollTop;
-    els.sidebar.innerHTML = `<h2 class="sr-only">Filters</h2>${html}`;
+    els.sidebar.innerHTML = V.filters(f, { brandQuery, showAllBrands });
     els.sidebar.scrollTop = top;
   }
   if (sheetKind === "filters") {
     const body = $(".sheet-body", els.sheet);
     const top = body.scrollTop;
-    body.innerHTML = html;
+    body.innerHTML = V.filters(f, { section, brandQuery, showAllBrands });
     body.scrollTop = top;
-    $("[data-act=show]", els.sheet).textContent = `Show ${plural(results.length, "flavor")}`;
+    $("[data-act=show]", els.sheet).textContent = results.length ? `Show ${plural(results.length, "flavor")}` : "No matches";
   }
   if (hadFocus) {
     const input = $("#brand-q", sheetKind === "filters" ? els.sheet : els.sidebar);
@@ -88,6 +89,7 @@ function renderFilters() {
     input?.setSelectionRange(caret, caret);
   }
   els.sort.value = f.sort;
+  els.sortLabel.textContent = C.SORTS.find(([k]) => k === f.sort)[1];
   $$(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view));
 }
 
@@ -95,7 +97,7 @@ function syncUrl() {
   const qs = C.toQuery(f);
   const url = `${location.pathname}${qs ? "?" + qs : ""}${location.hash}`;
   if (url !== location.pathname + location.search + location.hash) history.replaceState(history.state, "", url);
-  localStorage.setItem("hs_stock", f.stock ? "1" : "0");
+  C.savePrefs(f);
 }
 
 function renderCartBadge() {
@@ -113,14 +115,23 @@ function onFilter(el) {
   const k = el.dataset.f;
   const v = el.dataset.v;
   if (k === "brands") {
-    // Picking a whole brand drops its individual lines and vice versa.
-    const [brand, line] = v.split("\u0001");
-    if (line === undefined) {
-      for (const x of [...f.brands]) if (x.startsWith(brand + "\u0001")) f.brands.delete(x);
-      toggleSet(f.brands, brand);
+    // row: tick/untick the whole brand; all: whole brand instead of lines;
+    // line: narrow a brand to particular lines.
+    const brand = v.split("\u0001")[0];
+    const dropLines = () => [...f.brands].forEach((x) => x.startsWith(brand + "\u0001") && f.brands.delete(x));
+    const op = el.dataset.op || "row";
+    if (op === "row") {
+      const any = f.brands.has(brand) || [...f.brands].some((x) => x.startsWith(brand + "\u0001"));
+      dropLines();
+      if (any) f.brands.delete(brand);
+      else f.brands.add(brand);
+    } else if (op === "all") {
+      dropLines();
+      f.brands.add(brand);
     } else {
       f.brands.delete(brand);
       toggleSet(f.brands, v);
+      if (![...f.brands].some((x) => x.startsWith(brand + "\u0001"))) f.brands.add(brand);
     }
   } else if (["groups", "packs"].includes(k)) toggleSet(f[k], v);
   else if (k === "strength") toggleSet(f.strength, +v);
@@ -204,13 +215,15 @@ function openFromHash() {
   if (p) openDetail(p, { push: false });
 }
 
-function openFilters(scrollTo) {
+function openFilters(sec = "all") {
+  section = sec;
+  const clear = { all: "reset", brands: "clear-brands", rating: "clear-rating", flavor: "clear-groups" }[sec];
   openSheet("filters", {
-    title: "Filters",
-    body: V.filters(f, { brandQuery, openBrands }),
-    foot: `<button class="btn" data-act="reset">Reset</button><button class="btn primary" data-act="show">Show ${plural(results.length, "flavor")}</button>`,
+    title: V.SECTION_TITLES[sec],
+    cls: `filters-${sec}`,
+    body: V.filters(f, { section: sec, brandQuery, showAllBrands }),
+    foot: `<button class="btn" data-act="${clear}">${sec === "all" ? "Reset all" : "Clear"}</button><button class="btn primary" data-act="show">Show ${plural(results.length, "flavor")}</button>`,
   });
-  if (scrollTo) setTimeout(() => $(scrollTo, els.sheet)?.scrollIntoView({ block: "start" }), 60);
 }
 
 const openCart = () => openSheet("cart", V.cartView());
@@ -299,7 +312,7 @@ async function setMatch(htrId, unpin = false) {
     if (fresh) {
       current = fresh;
       sheetKind = "detail";
-      els.sheet.className = "sheet";
+      els.sheet.className = "sheet detail";
       updateSheet({ title: "", ...V.detail(fresh), foot: undefined });
       $(".sheet-foot", els.sheet)?.remove();
     }
@@ -384,13 +397,6 @@ document.addEventListener("keydown", (e) => {
 // one delegated click handler for the whole app
 document.addEventListener("click", async (e) => {
   const t = e.target;
-  const exp = t.closest("[data-exp]");
-  if (exp) {
-    e.stopPropagation();
-    toggleSet(openBrands, exp.dataset.exp);
-    renderFilters();
-    return;
-  }
   const fEl = t.closest("[data-f]");
   if (fEl && fEl.tagName !== "INPUT") return onFilter(fEl);
   const clr = t.closest("[data-clear]");
@@ -409,12 +415,20 @@ document.addEventListener("click", async (e) => {
     els.q.value = "";
     els.qClear.hidden = true;
     apply();
-  } else if (act === "filters") openFilters();
-  else if (act === "brands") {
-    if (matchMedia("(min-width:1080px)").matches) $("#f-brands")?.scrollIntoView({ behavior: "smooth" });
-    else openFilters("#f-brands");
+  } else if (act === "filters") openFilters("all");
+  else if (act === "sec") openFilters(a.dataset.sec);
+  else if (act === "all-brands") {
+    showAllBrands = true;
+    renderFilters();
   } else if (act === "clear-brands") {
     f.brands.clear();
+    apply();
+  } else if (act === "clear-rating") {
+    f.rmin = 0;
+    f.rcmin = 0;
+    apply();
+  } else if (act === "clear-groups") {
+    f.groups.clear();
     apply();
   } else if (act === "show") closeSheet();
   else if (act === "add") {
