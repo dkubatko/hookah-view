@@ -269,14 +269,23 @@ async function openFix() {
 }
 
 // drag-down to dismiss on touch screens
-(function sheetDrag() {
+const sheetDrag = (function () {
   let y0 = null;
   let dy = 0;
+  const reset = () => {
+    y0 = null;
+    els.sheet.style.transition = "";
+    els.sheet.style.translate = "";
+  };
   els.sheet.addEventListener("pointerdown", (e) => {
     if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button") || matchMedia("(min-width:1080px)").matches) return;
     y0 = e.clientY;
     dy = 0;
-    els.sheet.setPointerCapture(e.pointerId);
+    try {
+      els.sheet.setPointerCapture(e.pointerId);
+    } catch {
+      /* pointer already gone */
+    }
     els.sheet.style.transition = "none";
   });
   els.sheet.addEventListener("pointermove", (e) => {
@@ -293,7 +302,30 @@ async function openFix() {
   };
   els.sheet.addEventListener("pointerup", end);
   els.sheet.addEventListener("pointercancel", end);
+  // Leaving the app mid-drag never delivers pointerup; don't stay "dragging".
+  els.sheet.addEventListener("lostpointercapture", end);
+  return { reset };
 })();
+
+// Coming back to the tab (app switch, or a back/forward-cache restore), iOS
+// WebKit can leave the scroll area inside the open sheet frozen until
+// something forces a re-layout.  Force one, and drop any half-finished drag.
+function revive() {
+  sheetDrag.reset();
+  for (const b of $$(".sheet-body")) {
+    const top = b.scrollTop;
+    b.style.overflowY = "hidden";
+    void b.offsetHeight; // flush layout
+    b.style.overflowY = "";
+    b.scrollTop = top;
+  }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") revive();
+  else sheetDrag.reset();
+});
+window.addEventListener("pageshow", (e) => e.persisted && revive());
+window.addEventListener("focus", revive);
 
 // ── admin / server actions ─────────────────────────────────────────────
 const adminToken = () => localStorage.getItem("hs_admin") || "";
