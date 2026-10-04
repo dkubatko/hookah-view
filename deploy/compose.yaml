@@ -1,0 +1,27 @@
+# Hookah Shop on Tower: /mnt/cache/appdata/hookah-shop/compose.yaml, with .env
+# (MODERNMT_API_KEY) and data/ next to it. Registered as the "Hookah Shop"
+# stack in Unraid's Compose Manager (projects/hookah_shop points here).
+#   docker compose up -d        start / apply changes to this file
+# New images come from GitHub Actions (ghcr.io/dkubatko/hookah-view). The
+# label-scoped Watchtower in the Pond Battle stack updates every container
+# labelled watchtower.enable=true on Tower, this one included.
+name: hookah_shop
+services:
+  hookah-shop:
+    image: ghcr.io/dkubatko/hookah-view:latest
+    container_name: hookah-shop
+    env_file: .env
+    environment:
+      TZ: America/New_York
+    user: "99:100"           # Unraid's nobody:users, so appdata stays editable
+    volumes:
+      - ./data:/data         # catalog, raw data, translations cache, overrides, history
+    ports:
+      - "192.168.1.196:15001:8440"   # Nginx Proxy Manager forwards shop.3rdplacelounge.com here
+    mem_limit: 512m
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - net.unraid.docker.managed=composeman
+      - net.unraid.docker.icon=/mnt/cache/appdata/hookah-shop/icon.svg
+      - net.unraid.docker.webui=https://shop.3rdplacelounge.com/
+    restart: unless-stopped

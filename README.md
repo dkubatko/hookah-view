@@ -63,6 +63,13 @@ Filters live in the URL; sheets hook into history so Back closes them on phones.
 The shopping list is in localStorage and hands items to WHM's own cart with
 `?add-to-cart=<id>&quantity=<n>`.
 
+## Deploy
+
+Pushing to `main` runs the tests and publishes `ghcr.io/dkubatko/hookah-view:latest`
+(`.github/workflows/docker.yml`). On Tower the stack in `deploy/compose.yaml` runs that
+image behind Nginx Proxy Manager (shop.3rdplacelounge.com), and Watchtower picks up new
+images automatically. `/api/health` reports the running commit.
+
 ## Layout
 
 ```

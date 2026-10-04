@@ -1,5 +1,6 @@
 # Hookah Shop: one small Python image; data lives in /data (mount a volume).
 FROM python:3.13-slim
+LABEL org.opencontainers.image.source=https://github.com/dkubatko/hookah-view
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 DATA_DIR=/data PORT=8440
 WORKDIR /app
 COPY requirements.txt ./
