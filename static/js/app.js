@@ -69,29 +69,33 @@ function more() {
 function renderFilters() {
   const active = C.activeCount(f);
   els.quickbar.innerHTML = V.quickbar(f, active, C.anyActive(f));
-  // Re-rendering replaces the brand search box; keep focus and caret.
-  const hadFocus = document.activeElement?.id === "brand-q";
-  const caret = hadFocus ? document.activeElement.selectionStart : 0;
   if (getComputedStyle(els.sidebar).display !== "none") {
-    const top = els.sidebar.scrollTop;
-    els.sidebar.innerHTML = V.filters(f, { brandQuery, showAllBrands, brandsOpen: sidebarBrandsOpen, sidebar: true });
-    els.sidebar.scrollTop = top;
+    if (els.sidebar.contains(document.activeElement) && document.activeElement.id === "brand-q") {
+      renderBrandLists(); // typing: leave the input alone
+    } else {
+      const top = els.sidebar.scrollTop;
+      els.sidebar.innerHTML = V.filters(f, { brandQuery, showAllBrands, brandsOpen: sidebarBrandsOpen, sidebar: true });
+      els.sidebar.scrollTop = top;
+    }
   }
   if (sheetKind === "filters") {
-    const body = $(".sheet-body", els.sheet);
-    const top = body.scrollTop;
-    body.innerHTML = V.filters(f, { section, brandQuery, showAllBrands, brandsOpen: sheetBrandsOpen });
-    body.scrollTop = top;
+    if (section === "brands") renderBrandLists();
+    else {
+      const body = $(".sheet-body", els.sheet);
+      const top = body.scrollTop;
+      body.innerHTML = V.filters(f, { section, brandQuery, showAllBrands, brandsOpen: sheetBrandsOpen });
+      body.scrollTop = top;
+    }
     $("[data-act=show]", els.sheet).textContent = results.length ? `Show ${plural(results.length, "flavor")}` : "No matches";
-  }
-  if (hadFocus) {
-    const input = $("#brand-q", sheetKind === "filters" ? els.sheet : els.sidebar);
-    input?.focus();
-    input?.setSelectionRange(caret, caret);
   }
   els.sort.value = f.sort;
   els.sortLabel.textContent = C.SORTS.find(([k]) => k === f.sort)[1];
   $$(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view));
+}
+
+/** Refresh only the brand rows (sidebar and/or picker), never the search box. */
+function renderBrandLists() {
+  for (const host of $$(".brand-list-host")) host.innerHTML = V.brandList(f, brandQuery, showAllBrands);
 }
 
 function syncUrl() {
@@ -151,13 +155,13 @@ function clearOne(k, v) {
 }
 
 // ── sheets ─────────────────────────────────────────────────────────────
-function openSheet(kind, { title = "", body = "", foot = "", cls = "" }, { push = true } = {}) {
+function openSheet(kind, { title = "", sub = "", body = "", foot = "", cls = "" }, { push = true } = {}) {
   const wasOpen = !!sheetKind;
   sheetKind = kind;
   els.sheet.className = `sheet ${cls}`;
   els.sheet.innerHTML = `<div class="sheet-grab"></div>
     <div class="sheet-head"><h2${title ? ' id="sheet-title"' : ""}>${title}</h2><button class="sheet-close" data-act="close" aria-label="Close">${icon("x")}</button></div>
-    <div class="sheet-body">${body}</div>${foot ? `<div class="sheet-foot">${foot}</div>` : ""}`;
+    ${sub ? `<div class="sheet-sub">${sub}</div>` : ""}<div class="sheet-body">${body}</div>${foot ? `<div class="sheet-foot">${foot}</div>` : ""}`;
   els.sheet.hidden = false;
   els.scrim.hidden = false;
   els.sheet.classList.remove("closing");
@@ -170,10 +174,14 @@ function openSheet(kind, { title = "", body = "", foot = "", cls = "" }, { push 
   setTimeout(() => els.sheet.focus({ preventScroll: true }), 50);
 }
 
-function updateSheet({ title, body, foot }) {
+function updateSheet({ title, sub, body, foot }) {
   const b = $(".sheet-body", els.sheet);
   const top = b.scrollTop;
   if (title !== undefined) $(".sheet-head h2", els.sheet).innerHTML = title;
+  if (sub !== undefined) {
+    $(".sheet-sub", els.sheet)?.remove();
+    if (sub) b.insertAdjacentHTML("beforebegin", `<div class="sheet-sub">${sub}</div>`);
+  }
   b.innerHTML = body;
   b.scrollTop = top;
   const ft = $(".sheet-foot", els.sheet);
@@ -225,10 +233,15 @@ function openFromHash() {
 function openFilters(sec = "all") {
   section = sec;
   sheetBrandsOpen = false;
+  if (sec === "brands") {
+    brandQuery = "";
+    showAllBrands = false;
+  }
   const clear = { all: "reset", brands: "clear-brands", rating: "clear-rating", flavor: "clear-groups" }[sec];
   openSheet("filters", {
     title: V.SECTION_TITLES[sec],
-    cls: `filters-${sec}${sec === "brands" ? " full" : ""}`,
+    cls: `filters-${sec}${sec === "brands" ? " tall" : ""}`,
+    sub: sec === "brands" ? V.brandSearch("") : "",
     body: V.filters(f, { section: sec, brandQuery, showAllBrands, brandsOpen: sheetBrandsOpen }),
     foot: `<button class="btn" data-act="${clear}">${sec === "all" ? "Reset all" : "Clear"}</button><button class="btn primary" data-act="show">Show ${plural(results.length, "flavor")}</button>`,
   });
@@ -245,13 +258,14 @@ async function openInfo() {
 
 async function openFix() {
   const p = current;
-  openSheet("fix", { title: "Fix rating match", body: `<p class="hint">Loading ${esc(p.b)} flavors from HTReviews…</p>` }, { push: false });
+  openSheet("fix", { title: "Fix rating match", cls: "tall", body: `<p class="hint">Loading ${esc(p.b)} flavors from HTReviews…</p>` }, { push: false });
   current = p;
   const r = await fetch(`/api/htr/${encodeURIComponent(p.b)}`);
   const data = await r.json();
   fixState = { items: data.items, q: "" };
   updateSheet(V.fixView(p, fixState.items, ""));
-  setTimeout(() => $("#fix-q")?.focus(), 50);
+  // Don't pop the keyboard on phones; the likely matches are listed first.
+  if (matchMedia("(hover: hover)").matches) setTimeout(() => $("#fix-q")?.focus(), 50);
 }
 
 // drag-down to dismiss on touch screens
@@ -495,7 +509,7 @@ document.addEventListener("change", (e) => {
 document.addEventListener("input", (e) => {
   if (e.target.id === "brand-q") {
     brandQuery = e.target.value;
-    renderFilters();
+    renderBrandLists();
   } else if (e.target.id === "fix-q" && fixState) {
     fixState.q = e.target.value;
     const list = V.fixView(current, fixState.items, fixState.q);
@@ -506,8 +520,12 @@ document.addEventListener("input", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter" && e.key !== " ") return;
   const t = e.target;
+  if (e.key === "Enter" && (t.id === "brand-q" || t.id === "fix-q")) {
+    t.blur(); // "Done" on the keyboard just hides it
+    return;
+  }
+  if (e.key !== "Enter" && e.key !== " ") return;
   if (t.matches(".card[data-k]")) {
     e.preventDefault();
     openDetail(C.DATA.byKey.get(t.dataset.k));
@@ -521,24 +539,6 @@ document.addEventListener("keydown", (e) => {
 new ResizeObserver(([e]) =>
   document.documentElement.style.setProperty("--header-h", `${Math.ceil(e.target.getBoundingClientRect().height)}px`),
 ).observe($(".top"));
-
-// iOS keeps fixed elements pinned to the layout viewport, so with the
-// keyboard up a bottom sheet ends up behind it.  Track the visual viewport
-// and fit the open sheet into the space above the keyboard.
-if (window.visualViewport) {
-  const vv = window.visualViewport;
-  const sync = () => {
-    const kb = window.innerHeight - vv.height > 120 && !matchMedia("(min-width:1080px)").matches;
-    document.documentElement.style.setProperty("--vvh", `${vv.height}px`);
-    document.documentElement.style.setProperty("--vvt", `${vv.offsetTop}px`);
-    els.sheet.classList.toggle("kb", kb && !!sheetKind);
-    if (kb && document.activeElement?.matches(".sheet input")) {
-      document.activeElement.scrollIntoView({ block: "nearest" });
-    }
-  };
-  vv.addEventListener("resize", sync);
-  vv.addEventListener("scroll", sync);
-}
 
 new IntersectionObserver((entries) => entries.some((x) => x.isIntersecting) && more(), { rootMargin: "1200px" }).observe(els.sentinel);
 

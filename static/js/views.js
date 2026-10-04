@@ -189,14 +189,13 @@ function brandSummary(f) {
   return [...byBrand].map(([b, ls]) => (ls.length ? `${b} (${ls.join(", ")})` : b)).join(", ");
 }
 
-/** Brand picker. collapsible=true renders a summary row that expands. */
-function brandSection(f, brandQuery, showAll, { collapsible = false, open = true } = {}) {
-  const head = collapsible
-    ? `<button type="button" class="fsum" data-act="toggle-brands" aria-expanded="${open}">
-        <span><span class="fsum-t">Brands</span><span class="fsum-v${f.brands.size ? " on" : ""}">${esc(brandSummary(f))}</span></span>
-        ${icon("chev", "sm caret")}</button>`
-    : "";
-  if (collapsible && !open) return `<div class="fsec" id="f-brands">${head}</div>`;
+// The search box is rendered once and never re-rendered while typing:
+// replacing a focused input makes iOS re-scroll on every keystroke.
+export const brandSearch = (q = "") =>
+  `<div class="brand-search-wrap">${icon("search", "sm")}<input class="brand-search" id="brand-q" type="search" placeholder="Find a brand" value="${esc(q)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"></div>`;
+
+/** Brand rows (+ "show more"); goes inside a .brand-list-host. */
+export function brandList(f, brandQuery = "", showAll = false) {
   const bc = counts(f, "brands", (p) => [p.b, `${p.b}\u0001${p.l}`]);
   const q = brandQuery.trim().toLowerCase();
   const names = Object.keys(DATA.brands).sort((a, b) => a.localeCompare(b));
@@ -229,11 +228,22 @@ function brandSection(f, brandQuery, showAll, { collapsible = false, open = true
         <span class="n">${c}</span>
       </button>${lineChips}</div>`;
   };
-  return `<div class="fsec" id="f-brands">${head}
-    <div class="brand-search-wrap">${icon("search", "sm")}<input class="brand-search" id="brand-q" type="search" placeholder="Find a brand" value="${esc(brandQuery)}" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
-    <div class="brandlist">${visible.map(row).join("") || `<p class="hint">No brand matches “${esc(brandQuery)}”.</p>`}</div>
-    ${hidden.length ? `<button class="linkish more" data-act="all-brands">Show ${hidden.length} more ${hidden.length === 1 ? "brand" : "brands"} with no matches</button>` : ""}
-  </div>`;
+  return `<div class="brandlist">${visible.map(row).join("") || `<p class="hint">No brand matches “${esc(brandQuery)}”.</p>`}</div>
+    ${hidden.length ? `<button class="linkish more" data-act="all-brands">Show ${hidden.length} more ${hidden.length === 1 ? "brand" : "brands"} with no matches</button>` : ""}`;
+}
+
+const brandSummaryRow = (f, attrs, expanded) =>
+  `<button type="button" class="fsum" ${attrs}${expanded == null ? "" : ` aria-expanded="${expanded}"`}>
+    <span><span class="fsum-t">Brands</span><span class="fsum-v${f.brands.size ? " on" : ""}">${esc(brandSummary(f))}</span></span>
+    ${icon("chev", `sm ${expanded == null ? "go" : "caret"}`)}</button>`;
+
+/** Sidebar: collapsible summary with inline search. Mobile sheet: a summary
+ *  row that opens the dedicated brand picker. */
+function brandSection(f, brandQuery, showAll, { sidebar = false, open = true } = {}) {
+  if (!sidebar) return `<div class="fsec" id="f-brands">${brandSummaryRow(f, `data-act="sec" data-sec="brands"`)}</div>`;
+  if (!open) return `<div class="fsec" id="f-brands">${brandSummaryRow(f, `data-act="toggle-brands"`, false)}</div>`;
+  return `<div class="fsec" id="f-brands">${brandSummaryRow(f, `data-act="toggle-brands"`, true)}
+    ${brandSearch(brandQuery)}<div class="brand-list-host">${brandList(f, brandQuery, showAll)}</div></div>`;
 }
 
 function ratingSection(f) {
@@ -285,11 +295,11 @@ function moreSections(f) {
 
 /** Filter panel. section: "all" (sidebar / full sheet), "brands", "rating", "flavor". */
 export function filters(f, { section = "all", brandQuery = "", showAllBrands = false, brandsOpen = false, sidebar = false } = {}) {
-  if (section === "brands") return brandSection(f, brandQuery, showAllBrands);
+  if (section === "brands") return `<div class="brand-list-host">${brandList(f, brandQuery, showAllBrands)}</div>`;
   if (section === "rating") return ratingSection(f);
   if (section === "flavor") return flavorSection(f);
   return `${sidebar ? `<div class="fsec-top"><span>Filters</span><button class="linkish" data-act="reset">Reset all</button></div>` : ""}
-    ${originSection(f)}${brandSection(f, brandQuery, showAllBrands, { collapsible: true, open: brandsOpen })}${ratingSection(f)}${flavorSection(f)}${moreSections(f)}`;
+    ${originSection(f)}${brandSection(f, brandQuery, showAllBrands, { sidebar, open: brandsOpen })}${ratingSection(f)}${flavorSection(f)}${moreSections(f)}`;
 }
 
 /** Label for the rating chip, e.g. "★ 4.3+", "20+ ratings", "★ 4.3+ · 20+ ratings". */
@@ -432,9 +442,9 @@ export function fixView(p, items, q = "") {
     .join("");
   return {
     title: "Fix rating match",
-    body: `<p class="hint">Which HTReviews flavor is <b>${esc(p.b)} ${esc(p.n)}</b>${p.l ? ` (${esc(p.l)})` : ""}? Your choice sticks across refreshes.</p>
-      <input class="field" id="fix-q" type="search" placeholder="Search ${esc(p.b)} on HTReviews…" value="${esc(q)}" autocomplete="off">
-      <div class="fix-list">${list || `<p class="hint">Nothing matches “${esc(q)}”.</p>`}</div>`,
+    sub: `<p class="hint">Which HTReviews flavor is <b>${esc(p.b)} ${esc(p.n)}</b>${p.l ? ` (${esc(p.l)})` : ""}? Your choice sticks across refreshes.</p>
+      <div class="brand-search-wrap">${icon("search", "sm")}<input class="brand-search" id="fix-q" type="search" placeholder="Search ${esc(p.b)} on HTReviews" value="${esc(q)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"></div>`,
+    body: `<div class="fix-list">${list || `<p class="hint">Nothing matches “${esc(q)}”.</p>`}</div>`,
     foot: `${p.mo ? `<button class="btn" data-act="unpin">Back to automatic</button>` : ""}<button class="btn" data-act="pick" data-id="">Not on HTReviews</button>`,
   };
 }

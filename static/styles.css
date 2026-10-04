@@ -579,7 +579,7 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 .brand-search-wrap .ico { color: var(--muted); }
 .brand-search { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; }
 .brand-search::-webkit-search-cancel-button { display: none; }
-.sheet .brand-search-wrap { position: sticky; top: 0; z-index: 2; box-shadow: 0 -12px 0 var(--bg-2); }
+
 .brandlist { display: flex; flex-direction: column; }
 .brand-row { border-bottom: 1px solid var(--line); }
 .brand-row:last-child { border-bottom: 0; }
@@ -655,18 +655,6 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 @media (min-width: 1080px) { .sheet.detail .sheet-body { padding-top: 18px; } .sheet.detail .sheet-head { top: 16px; } }
 
 /* ── round 3 ─────────────────────────────────────────────────────────── */
-/* brand picker opened from the Brand chip: full height, search on top */
-@media (max-width: 1079px) {
-  .sheet.full { top: calc(env(safe-area-inset-top) + 10px); max-height: none; }
-  /* keyboard up: fit the sheet into the visible area above it */
-  .sheet.kb {
-    top: var(--vvt, 0); bottom: auto; height: var(--vvh, 100%); max-height: var(--vvh, 100%);
-    border-radius: 0; animation: none; padding-bottom: 0;
-  }
-  .sheet.kb .sheet-foot, .sheet.kb .sheet-grab { display: none; }
-  .sheet.kb .sheet-head { padding-top: 10px; }
-}
-
 /* collapsible summary row (brands in the full filter panel) */
 .fsum {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -739,3 +727,13 @@ html, body { overscroll-behavior-y: none; }
 .card-title .rating { margin-block: -4px; }
 .card-body { gap: 3px; }
 .card-body .meta { margin-top: 2px; }
+
+/* ── round 5: sheets with a search box ───────────────────────────────────
+   Fixed height (the sheet must not shrink while the list filters) and the
+   search box in a non-scrolling row above the list. */
+.sheet-sub { flex: none; padding: 0 16px 10px; }
+.sheet-sub .hint { margin: 0 0 10px; }
+.sheet-sub .brand-search-wrap { margin-bottom: 0; }
+@media (max-width: 1079px) { .sheet.tall { height: 88dvh; max-height: 88dvh; } }
+@media (min-width: 1080px) { .sheet.tall { height: min(80vh, 760px); } }
+.fsum .go { color: var(--muted); }
