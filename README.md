@@ -68,7 +68,8 @@ The shopping list is in localStorage and hands items to WHM's own cart with
 Pushing to `main` runs the tests and publishes `ghcr.io/dkubatko/hookah-view:latest`
 (`.github/workflows/docker.yml`). On Tower the stack in `deploy/compose.yaml` runs that
 image behind Nginx Proxy Manager (shop.3rdplacelounge.com), and Watchtower picks up new
-images automatically. `/api/health` reports the running commit.
+images automatically (its own Watchtower, scoped to this stack). `/api/health` reports
+the running commit.
 
 ## Layout
 

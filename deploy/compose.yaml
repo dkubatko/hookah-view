@@ -2,9 +2,8 @@
 # (MODERNMT_API_KEY) and data/ next to it. Registered as the "Hookah Shop"
 # stack in Unraid's Compose Manager (projects/hookah_shop points here).
 #   docker compose up -d        start / apply changes to this file
-# New images come from GitHub Actions (ghcr.io/dkubatko/hookah-view). The
-# label-scoped Watchtower in the Pond Battle stack updates every container
-# labelled watchtower.enable=true on Tower, this one included.
+# New images come from GitHub Actions (public package ghcr.io/dkubatko/hookah-view);
+# this stack's own Watchtower pulls them.
 name: hookah_shop
 services:
   hookah-shop:
@@ -21,7 +20,25 @@ services:
     mem_limit: 512m
     labels:
       - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=hookah-shop
       - net.unraid.docker.managed=composeman
       - net.unraid.docker.icon=/mnt/cache/appdata/hookah-shop/icon.svg
       - net.unraid.docker.webui=https://shop.3rdplacelounge.com/
+    restart: unless-stopped
+
+  # Checks GitHub's registry every minute and restarts Hookah Shop on a new image.
+  # --scope hookah-shop: it only touches containers with that scope label, and
+  # unscoped Watchtowers (e.g. Pond Battle's) ignore scoped containers, so the
+  # two apps' deployments stay separate.
+  # (nickfedor's fork: the original containrrr/watchtower no longer works with Docker 29.)
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: hookah-shop-watchtower
+    command: --label-enable --scope hookah-shop --interval 60 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - com.centurylinklabs.watchtower.scope=hookah-shop
+      - net.unraid.docker.managed=composeman
+      - net.unraid.docker.icon=/mnt/cache/appdata/hookah-shop/icon.svg
     restart: unless-stopped
