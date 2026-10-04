@@ -1,0 +1,16 @@
+# Example deployment (not yet used): Tower would map a host port behind NPM.
+services:
+  hookah-shop:
+    build: .
+    container_name: hookah-shop
+    restart: unless-stopped
+    init: true
+    ports:
+      - "8440:8440"
+    environment:
+      TZ: America/New_York
+      # ADMIN_TOKEN: set to require a token for refresh / match fixes
+    env_file: .env          # MODERNMT_API_KEY
+    volumes:
+      - ./data:/data
+    mem_limit: 384m

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hookah Shop · 3rd Place Lounge</title>
+  <meta name="description" content="World Hookah Market tobacco with HTReviews ratings">
+  <meta name="theme-color" content="#14110f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f3ee" media="(prefers-color-scheme: light)">
+  <meta name="color-scheme" content="dark light">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/static/icon.svg?v=__V__" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icon-180.png?v=__V__">
+  <link rel="manifest" href="/static/manifest.webmanifest?v=__V__">
+  <link rel="stylesheet" href="/static/styles.css?v=__V__">
+  <script>window.__catalog = fetch("/api/catalog");</script>
+  <script type="importmap">
+    { "imports": {
+      "/static/js/app.js": "/static/js/app.js?v=__V__",
+      "/static/js/catalog.js": "/static/js/catalog.js?v=__V__",
+      "/static/js/views.js": "/static/js/views.js?v=__V__",
+      "/static/js/cart.js": "/static/js/cart.js?v=__V__",
+      "/static/js/util.js": "/static/js/util.js?v=__V__"
+    } }
+  </script>
+  <link rel="modulepreload" href="/static/js/catalog.js?v=__V__">
+  <link rel="modulepreload" href="/static/js/views.js?v=__V__">
+  <link rel="modulepreload" href="/static/js/cart.js?v=__V__">
+  <link rel="modulepreload" href="/static/js/util.js?v=__V__">
+  <script type="module">import "/static/js/app.js";</script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+      <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.4 11.2a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2L21 8H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.7-4.3L4 8M4 4v4h4M4 13a8 8 0 0 0 14.7 4.3L20 16M20 20v-4h-4"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 5 5L21 13l-8 8-3-3 1.5-1.5a4 4 0 0 0-5-5L5 13 3 11l8-8 2 2z"/></symbol>
+      <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3"/></symbol>
+      <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="top">
+    <div class="top-inner">
+      <a class="brandmark" href="/" aria-label="Hookah Shop home">
+        <img src="/static/icon.svg?v=__V__" alt="" width="32" height="32">
+        <span class="brandmark-text"><b>Hookah Shop</b><small>3rd Place Lounge</small></span>
+      </a>
+      <label class="search">
+        <svg class="ico"><use href="#i-search"/></svg>
+        <input id="q" type="search" placeholder="Search flavors, brands, notes…" autocomplete="off" enterkeyhint="search" spellcheck="false">
+        <button class="search-clear" id="q-clear" type="button" aria-label="Clear search" hidden><svg class="ico"><use href="#i-x"/></svg></button>
+      </label>
+      <div class="top-actions">
+        <button class="icon-btn" id="btn-info" type="button" aria-label="Data &amp; status"><svg class="ico"><use href="#i-info"/></svg></button>
+        <button class="icon-btn cart-btn" id="btn-cart" type="button" aria-label="Shopping list">
+          <svg class="ico"><use href="#i-bag"/></svg><span class="badge" id="cart-count" hidden>0</span>
+        </button>
+      </div>
+    </div>
+    <div class="quickbar" id="quickbar" role="toolbar" aria-label="Quick filters"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar" aria-label="Filters"></aside>
+    <main class="results" id="results">
+      <div class="results-head">
+        <div class="results-count" id="count" aria-live="polite"></div>
+        <div class="results-tools">
+          <label class="select">
+            <svg class="ico"><use href="#i-sort"/></svg>
+            <select id="sort" aria-label="Sort"></select>
+          </label>
+          <div class="seg" role="group" aria-label="View">
+            <button type="button" data-view="grid" aria-label="Cards"><svg class="ico"><use href="#i-grid"/></svg></button>
+            <button type="button" data-view="list" aria-label="Compact list"><svg class="ico"><use href="#i-list"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="pills" id="pills"></div>
+      <div id="grid" class="grid"></div>
+      <div id="sentinel" class="sentinel"></div>
+      <div id="empty" class="empty" hidden></div>
+    </main>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></section>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <noscript><p class="empty">This app needs JavaScript.</p></noscript>
+</body>
+</html>

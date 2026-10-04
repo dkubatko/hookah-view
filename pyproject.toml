@@ -1,0 +1,21 @@
+[project]
+name = "hookah-shop"
+version = "2.0.0"
+description = "Shop World Hookah Market tobacco with HTReviews ratings"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28",
+    "rapidfuzz>=3.14",
+    "starlette>=0.48",
+    "uvicorn>=0.37",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
