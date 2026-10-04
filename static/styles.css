@@ -701,11 +701,12 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 @media (min-width: 640px) { :root { --gutter: 20px; } }
 @media (min-width: 1080px) { :root { --gutter: 24px; --header-h: 64px; } }
 
-/* A sticky header rides along with iOS rubber-band overscroll and Chrome's
-   pull-down gesture; a fixed one stays put, and the bounce is switched off. */
+/* Sticky, not fixed: Chrome on iOS lays the page out underneath its own
+   toolbar, so a fixed top:0 header ends up hidden behind the address bar,
+   while sticky respects the browser's insets. What made the sticky header
+   jump was iOS overscroll bounce / Chrome's pull gesture, so turn that off. */
 html, body { overscroll-behavior-y: none; }
-body { padding-top: var(--header-h); }
-.top { position: fixed; top: 0; left: 0; right: 0; padding-top: 0; }
+.top { position: sticky; top: 0; padding-top: 0; }
 
 .top-inner { height: auto; padding: 12px var(--gutter) 0; gap: var(--gap); }
 .brandmark { gap: 10px; }
