@@ -517,6 +517,11 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// The header is position:fixed; keep the page offset equal to its real height.
+new ResizeObserver(([e]) =>
+  document.documentElement.style.setProperty("--header-h", `${Math.ceil(e.target.getBoundingClientRect().height)}px`),
+).observe($(".top"));
+
 // iOS keeps fixed elements pinned to the layout viewport, so with the
 // keyboard up a bottom sheet ends up behind it.  Track the visual viewport
 // and fit the open sheet into the space above the keyboard.

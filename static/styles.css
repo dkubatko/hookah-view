@@ -693,3 +693,48 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 .d-score small b { color: var(--text); }
 .chip.zero { opacity: .45; }
 .sheet:focus { outline: none; }
+
+/* ── layout rhythm + fixed header (round 4) ──────────────────────────────
+   One spacing scale: --gutter page margin, --gap between neighbouring
+   controls, --ctl height for header controls, --chip height for chips. */
+:root { --gutter: 12px; --gap: 8px; --ctl: 40px; --chip: 36px; --header-h: 106px; }
+@media (min-width: 640px) { :root { --gutter: 20px; } }
+@media (min-width: 1080px) { :root { --gutter: 24px; --header-h: 64px; } }
+
+/* A sticky header rides along with iOS rubber-band overscroll and Chrome's
+   pull-down gesture; a fixed one stays put, and the bounce is switched off. */
+html, body { overscroll-behavior-y: none; }
+body { padding-top: var(--header-h); }
+.top { position: fixed; top: 0; left: 0; right: 0; padding-top: 0; }
+
+.top-inner { height: auto; padding: 12px var(--gutter) 0; gap: var(--gap); }
+.brandmark { gap: 10px; }
+.brandmark img { width: var(--ctl); height: var(--ctl); border-radius: 11px; }
+.search { height: var(--ctl); border-radius: 12px; }
+.top-actions { gap: var(--gap); }
+.icon-btn { width: var(--ctl); height: var(--ctl); border-radius: 12px; }
+
+.quickbar { padding: 12px calc(var(--gutter) + 20px) 12px var(--gutter); gap: var(--gap); scroll-padding: var(--gutter); }
+.chip { height: var(--chip); }
+.icon-chip { width: 44px; padding: 0; justify-content: center; }
+.icon-chip.on { width: auto; padding: 0 12px; }
+
+.results { padding: 0 var(--gutter) calc(32px + env(safe-area-inset-bottom)); }
+.results-head { padding: 12px 0; gap: var(--gap); }
+.select, .seg { height: var(--chip); }
+.seg button { height: calc(var(--chip) - 6px); }
+.grid { gap: var(--gap); }
+
+@media (min-width: 1080px) {
+  .top-inner { padding: 12px var(--gutter); }
+  .brandmark { width: calc(var(--sidebar-w) - var(--gutter)); }
+  .sidebar { top: var(--header-h); height: calc(100dvh - var(--header-h)); padding: 4px 20px 32px var(--gutter); }
+  .results { padding: 0 var(--gutter) 48px; }
+  .results-head { padding: 16px 0 12px; }
+  .grid { gap: 12px; }
+}
+/* the badge mustn't make the title row taller than the text lines below it */
+.card-title { align-items: center; }
+.card-title .rating { margin-block: -4px; }
+.card-body { gap: 3px; }
+.card-body .meta { margin-top: 2px; }
