@@ -22,7 +22,7 @@ export const PACKS = [
 // Steps for the score filter (the score is the HTReviews average adjusted
 // for how many people rated it; see build.py).
 export const RATING_STEPS = [0, 4, 4.2, 4.3, 4.4, 4.5];
-export const COUNT_STEPS = [0, 5, 20, 50, 100];
+export const COUNT_STEPS = [0, 5, 10, 20, 50, 100];
 export const NEW_DAYS = 14;
 export const BACK_DAYS = 7;
 export const APPROX = 84; // match scores below this are flagged "approximate"

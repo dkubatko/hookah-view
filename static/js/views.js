@@ -247,9 +247,9 @@ function brandSection(f, brandQuery, showAll, { sidebar = false, open = true } =
 
 function ratingSection(f) {
   return `<div class="fsec"><h4>Minimum score</h4>
-    <div class="segmented">${RATING_STEPS.map((r) => `<button type="button" data-f="rmin" data-v="${r}" aria-pressed="${f.rmin === r}">${r ? r.toFixed(1) + "+" : "Any"}</button>`).join("")}</div>
+    <div class="segmented six">${RATING_STEPS.map((r) => `<button type="button" data-f="rmin" data-v="${r}" aria-pressed="${f.rmin === r}">${r ? r.toFixed(1) + "+" : "Any"}</button>`).join("")}</div>
     <h4 class="gap">At least this many ratings</h4>
-    <div class="segmented">${COUNT_STEPS.map((c) => `<button type="button" data-f="rcmin" data-v="${c}" aria-pressed="${f.rcmin === c}">${c ? `${c}+` : "Any"}</button>`).join("")}</div>
+    <div class="segmented six">${COUNT_STEPS.map((c) => `<button type="button" data-f="rcmin" data-v="${c}" aria-pressed="${f.rcmin === c}">${c ? `${c}+` : "Any"}</button>`).join("")}</div>
   </div>`;
 }
 

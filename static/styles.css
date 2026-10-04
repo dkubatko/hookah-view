@@ -737,3 +737,22 @@ html, body { overscroll-behavior-y: none; }
 @media (max-width: 1079px) { .sheet.tall { height: 88dvh; max-height: 88dvh; } }
 @media (min-width: 1080px) { .sheet.tall { height: min(80vh, 760px); } }
 .fsum .go { color: var(--muted); }
+
+/* ── round 6: desktop list columns, segmented grids ─────────────────────
+   Segmented controls are grids of equal cells: 3 across by default, 6 across
+   for the score/count rows on phones, and 2 rows of 3 in the narrow sidebar. */
+.segmented { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 3px; }
+.segmented.six { --cols: 6; }
+#sidebar .segmented.six { --cols: 3; }
+.segmented button { padding: 0 4px; }
+
+/* List rows: price and rating get fixed columns so every row lines up. */
+.grid.list .list-right { display: grid; grid-template-columns: 58px 62px; align-items: center; gap: 10px; }
+.grid.list .price { justify-self: end; }
+.grid.list .rating { width: 62px; min-width: 0; justify-content: center; justify-self: end; }
+@media (min-width: 1080px) {
+  .grid.list .card { grid-template-columns: 44px minmax(0, 1fr) 280px 196px; column-gap: 16px; }
+  .grid.list .list-right { grid-template-columns: 112px 64px; gap: 20px; }
+  .grid.list .rating { width: 64px; }
+  .grid.list .card-desk { justify-content: flex-start; }
+}
