@@ -122,8 +122,7 @@ export function detail(p) {
         p.score != null
           ? `<div class="d-score" style="--rc:${ratingColor(p.score)}"><div class="big">${p.score.toFixed(1)}</div><div>
                <div class="stars">${stars(p.score)}</div>
-               <small>HTReviews average <b>${h.r.toFixed(1)}</b> from ${plural(h.rc, "rating")}</small></div></div>
-             <p class="hint score-note">Score = that average, pulled toward the typical ${DATA.prior?.toFixed(1) || "4.2"} until enough people have rated it.</p>`
+               <small>HTReviews average <b>${h.r.toFixed(1)}</b> from ${plural(h.rc, "rating")}</small></div></div>`
           : `<p class="hint">Listed on HTReviews but nobody has rated it yet.</p>`
       }
       <dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
