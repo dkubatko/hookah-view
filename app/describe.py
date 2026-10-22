@@ -14,6 +14,7 @@ import html
 import logging
 import re
 import time
+from urllib.parse import quote
 
 import httpx
 
@@ -27,7 +28,9 @@ CACHE_FILE = "descriptions.json"
 RETRY_EMPTY = 14 * 86400  # look again for a description that wasn't there
 RETRY_FAILED = 3600  # page fetch failed: try again soon
 CONCURRENCY = 3
-BATCH = 32  # ModernMT phrases per request
+# ModernMT only takes GET; Cyrillic URL-encodes to 6 bytes a character, so
+# batches are cut by encoded size to keep the URL well under server limits.
+BATCH_BYTES = 6000
 
 _cache: dict[str, dict] | None = None
 
@@ -97,6 +100,23 @@ async def _translate(client: httpx.AsyncClient, texts: list[str]) -> list[str | 
         return [None] * len(texts)
 
 
+def batches(keys: list, text, limit: int = BATCH_BYTES) -> list[list]:
+    """Split keys into runs whose URL-encoded texts stay under ``limit`` bytes."""
+    out: list[list] = []
+    cur: list = []
+    size = 0
+    for k in keys:
+        n = len(quote(text(k))) + 3
+        if cur and size + n > limit:
+            out.append(cur)
+            cur, size = [], 0
+        cur.append(k)
+        size += n
+    if cur:
+        out.append(cur)
+    return out
+
+
 async def fill(flavors: list[tuple[int, str]], progress=None) -> int:
     """Fetch and translate descriptions for ``[(htr id, slug), …]`` that
     aren't cached yet.  Returns how many descriptions were added or
@@ -131,8 +151,7 @@ async def fill(flavors: list[tuple[int, str]], progress=None) -> int:
         if pending and config.MODERNMT_API_KEY:
             if progress:
                 progress(f"Translating {len(pending)} descriptions…")
-            for i in range(0, len(pending), BATCH):
-                keys = pending[i : i + BATCH]
+            for keys in batches(pending, lambda k: c[k]["ru"]):
                 for k, en in zip(keys, await _translate(client, [c[k]["ru"] for k in keys])):
                     if en:
                         c[k]["en"] = en
