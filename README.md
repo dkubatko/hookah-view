@@ -54,10 +54,6 @@ candidates get a bonus. Weaker matches (< 84) show as "≈ match" and can be rev
 *About this data → Review uncertain matches*. Fixes made in the UI are stored in
 `overrides.json` and survive refreshes.
 
-**Descriptions.** The list API has none, so a flavor's HTR page is fetched the first
-time someone opens it (`app/describe.py`), translated with ModernMT and cached in
-`descriptions.json`.
-
 **Ratings.** *Best rated* uses a Bayesian average: `(prior·15 + rating·n) / (15 + n)`,
 so a 5.0 from two people doesn't outrank a 4.7 from three hundred.
 
@@ -78,7 +74,7 @@ the running commit.
 ## Layout
 
 ```
-app/  config  store  text  vocab  translate  rules  parse  match  build  refresh  describe  main
+app/  config  store  text  vocab  translate  rules  parse  match  build  refresh  main
       sources/whm.py  sources/htr.py
 static/  index.html  styles.css  js/{app,catalog,views,cart,util}.js
 tests/

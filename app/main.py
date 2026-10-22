@@ -22,7 +22,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from app import config, describe, refresh, store
+from app import config, refresh, store
 from app.build import english_name
 from app.text import display_case, has_cyrillic
 
@@ -53,14 +53,12 @@ class Cache:
     catalog: Doc | None = None
     stats: dict = {}
     htr_brands: dict[str, Doc] = {}
-    htr_slugs: dict[int, str] = {}  # HTR id -> flavor page, for matched flavors
 
     @classmethod
     def set_catalog(cls, catalog: dict) -> None:
         cls.catalog = Doc(catalog)
         cls.stats = catalog.get("stats", {})
         cls.htr_brands = {}
-        cls.htr_slugs = {p["h"]["id"]: p["h"]["u"] for p in catalog.get("products", []) if p.get("h")}
 
 
 refresh.state.on_catalog = Cache.set_catalog
@@ -144,19 +142,6 @@ async def htr_brand(request: Request) -> Response:
     return Cache.htr_brands[brand].response(request)
 
 
-async def description(request: Request) -> Response:
-    """HTReviews' description of a flavor shown in the shop, in English."""
-    try:
-        htr_id = int(request.path_params["id"])
-    except ValueError:
-        return JSONResponse({"error": "bad id"}, status_code=400)
-    slug = Cache.htr_slugs.get(htr_id)
-    if not slug:
-        return JSONResponse({"error": "unknown flavor"}, status_code=404)
-    data = await describe.get(htr_id, slug)
-    return JSONResponse(data, headers={"Cache-Control": "private, max-age=86400"})
-
-
 async def set_match(request: Request) -> Response:
     """Pin a flavor to an HTR review (htr_id), mark it "no review" (null), or
     clear the pin (DELETE) so automatic matching applies again."""
@@ -215,7 +200,6 @@ app = Starlette(
         Route("/api/health", health),
         Route("/api/refresh", start_refresh, methods=["POST"]),
         Route("/api/htr/{brand:path}", htr_brand),
-        Route("/api/desc/{id}", description),
         Route("/api/match", set_match, methods=["PUT", "DELETE"]),
         Mount("/static", Static(directory=Path(config.STATIC_DIR))),
     ],

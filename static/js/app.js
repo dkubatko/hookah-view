@@ -62,7 +62,7 @@ function apply({ keepScroll = false } = {}) {
 function more() {
   if (shown >= results.length) return;
   const next = results.slice(shown, shown + PAGE);
-  els.grid.insertAdjacentHTML("beforeend", next.map((p) => V.card(p, view === "list")).join(""));
+  els.grid.insertAdjacentHTML("beforeend", next.map(V.card).join(""));
   shown += next.length;
 }
 
@@ -91,68 +91,6 @@ function renderFilters() {
   els.sort.value = f.sort;
   els.sortLabel.textContent = C.SORTS.find(([k]) => k === f.sort)[1];
   $$(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view));
-}
-
-/** Re-render the cards whose quantity in the shopping list changed. */
-function refreshCards() {
-  for (const el of $$(".card[data-k]", els.grid)) {
-    const p = C.DATA.byKey.get(el.dataset.k);
-    if (p && +el.dataset.q !== V.listQty(p)) el.outerHTML = V.card(p, view === "list");
-  }
-}
-
-// ── size picker (list view's add button) ───────────────────────────────
-let menu = null;
-function closeMenu() {
-  menu?.remove();
-  menu = null;
-}
-function openMenu(btn, p) {
-  closeMenu();
-  menu = document.createElement("div");
-  menu.className = "size-menu";
-  menu.innerHTML = V.sizeMenu(p);
-  document.body.append(menu);
-  const r = btn.getBoundingClientRect();
-  const m = menu.getBoundingClientRect();
-  const below = r.bottom + 6 + m.height < innerHeight;
-  menu.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
-  menu.style.left = `${Math.round(Math.max(8, r.right - m.width))}px`;
-}
-window.addEventListener("scroll", closeMenu, { passive: true });
-window.addEventListener("resize", closeMenu);
-
-/** Add a flavor straight from a card: the only size in stock, or pick one. */
-function quickAdd(btn, p) {
-  const sizes = p.s.filter((s) => s.st);
-  if (sizes.length === 1) return addSku(sizes[0].id);
-  if (menu && menu.dataset.k === p.k) return closeMenu();
-  openMenu(btn, p);
-  menu.dataset.k = p.k;
-}
-
-function addSku(sku) {
-  cart.add(sku);
-  const hit = C.DATA.bySku.get(sku);
-  const q = cart.qtyOf(sku);
-  toast(`Added ${hit.p.n} ${weight(hit.s.g)} to your list${q > 1 ? ` (${q})` : ""}`);
-}
-
-// ── HTReviews descriptions, fetched when a flavor is opened ────────────
-async function loadDescription(p) {
-  const id = p.h?.id;
-  if (!id || V.DESC.has(id)) return;
-  V.DESC.set(id, "loading");
-  let d = null;
-  try {
-    const r = await fetch(`/api/desc/${id}`);
-    if (r.ok) d = await r.json();
-  } catch {
-    /* offline */
-  }
-  if (d) V.DESC.set(id, d);
-  else V.DESC.delete(id); // try again next time
-  if (sheetKind === "detail" && current?.h?.id === id) updateSheet(V.detail(current));
 }
 
 /** Refresh only the brand rows (sidebar and/or picker), never the search box. */
@@ -282,9 +220,7 @@ window.addEventListener("popstate", () => {
 });
 
 function openDetail(p, opts) {
-  closeMenu();
   current = p;
-  loadDescription(p);
   openSheet("detail", V.detail(p), opts);
 }
 
@@ -505,8 +441,7 @@ $("#btn-cart").addEventListener("click", openCart);
 $("#btn-info").addEventListener("click", openInfo);
 els.scrim.addEventListener("click", () => closeSheet());
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && menu) closeMenu();
-  else if (e.key === "Escape" && sheetKind) closeSheet();
+  if (e.key === "Escape" && sheetKind) closeSheet();
   if (e.key === "/" && !sheetKind && document.activeElement?.tagName !== "INPUT") {
     e.preventDefault();
     els.q.focus();
@@ -520,10 +455,10 @@ document.addEventListener("click", async (e) => {
   if (fEl && fEl.tagName !== "INPUT") return onFilter(fEl);
   const clr = t.closest("[data-clear]");
   if (clr) return clearOne(clr.dataset.clear, clr.dataset.v);
-  const a = t.closest("[data-act]");
-  if (menu && !menu.contains(t) && !t.closest("[data-act=quick]")) closeMenu();
   const cardEl = t.closest(".card[data-k]");
-  if (cardEl && !(a && cardEl.contains(a))) return openDetail(C.DATA.byKey.get(cardEl.dataset.k));
+  if (cardEl) return openDetail(C.DATA.byKey.get(cardEl.dataset.k));
+
+  const a = t.closest("[data-act]");
   if (!a) return;
   const act = a.dataset.act;
   if (act === "close") closeSheet();
@@ -555,10 +490,12 @@ document.addEventListener("click", async (e) => {
     apply();
   } else if (act === "show") closeSheet();
   else if (act === "add") {
-    addSku(+a.dataset.sku);
-    if (a.closest(".size-menu")) closeMenu();
-  } else if (act === "quick") quickAdd(a, C.DATA.byKey.get(a.dataset.k));
-  else if (act === "qty") {
+    const sku = +a.dataset.sku;
+    cart.add(sku);
+    const hit = C.DATA.bySku.get(sku);
+    toast(`Added ${hit.p.n} ${weight(hit.s.g)} to your list`);
+    if (current) updateSheet(V.detail(current));
+  } else if (act === "qty") {
     cart.setQty(+a.dataset.sku, +a.dataset.q);
   } else if (act === "sent") {
     cart.markSent(+a.dataset.sku);
@@ -639,7 +576,6 @@ new IntersectionObserver((entries) => entries.some((x) => x.isIntersecting) && m
 
 cart.onChange(() => {
   renderCartBadge();
-  refreshCards();
   refreshCart();
   if (sheetKind === "detail" && current) updateSheet(V.detail(current));
 });
