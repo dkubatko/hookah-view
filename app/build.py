@@ -18,7 +18,7 @@ from app import rules
 from app.match import THRESHOLD, BrandIndex, best_match, build_index
 from app.parse import Taxonomy, extract_flavor, grams
 from app.text import display_case, fix_homoglyphs, has_cyrillic, is_mostly_latin, norm, slugify
-from app import translate, vocab
+from app import describe, translate, vocab
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +82,7 @@ def _htr_payload(item: dict, brand_slug: str) -> dict:
         "stat": vocab.STATUS.get(item.get("status") or "", item.get("status") or ""),
         "tags": tags,
         "img": f"{HTR_BASE}/{item['image']}" if item.get("image") else "",
+        "d": describe.text(item["id"]),
     }
 
 

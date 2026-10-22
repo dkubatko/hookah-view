@@ -11,7 +11,7 @@ import logging
 import time
 from collections import deque
 
-from app import build, config, rules, store, translate
+from app import build, config, describe, rules, store, translate
 from app.parse import Taxonomy
 from app.sources import htr as htr_source
 from app.sources import whm as whm_source
@@ -122,6 +122,14 @@ def rebuild() -> dict | None:
     return catalog
 
 
+async def describe_missing(catalog: dict) -> None:
+    """Fetch HTR descriptions for matched flavors that don't have one yet,
+    and rebuild if any arrived.  Call with the lock held."""
+    flavors = [(p["h"]["id"], p["h"]["u"]) for p in catalog["products"] if p.get("h")]
+    if await describe.fill(flavors, progress=state.say):
+        await asyncio.to_thread(rebuild)
+
+
 async def run(kind: str) -> bool:
     """kind: 'whm', 'htr' or 'all'.  Returns False if a job is already running."""
     if state.lock.locked():
@@ -141,6 +149,7 @@ async def run(kind: str) -> bool:
                     f"Done: {s['products']} flavors, {s['matched']} with ratings, "
                     f"{s['in_stock']} in stock"
                 )
+                await describe_missing(catalog)
             state.mark(error=None)
         except Exception as e:
             log.exception("refresh failed")

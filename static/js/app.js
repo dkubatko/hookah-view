@@ -138,23 +138,6 @@ function addSku(sku) {
   toast(`Added ${hit.p.n} ${weight(hit.s.g)} to your list${q > 1 ? ` (${q})` : ""}`);
 }
 
-// ── HTReviews descriptions, fetched when a flavor is opened ────────────
-async function loadDescription(p) {
-  const id = p.h?.id;
-  if (!id || V.DESC.has(id)) return;
-  V.DESC.set(id, "loading");
-  let d = null;
-  try {
-    const r = await fetch(`/api/desc/${id}`);
-    if (r.ok) d = await r.json();
-  } catch {
-    /* offline */
-  }
-  if (d) V.DESC.set(id, d);
-  else V.DESC.delete(id); // try again next time
-  if (sheetKind === "detail" && current?.h?.id === id) updateSheet(V.detail(current));
-}
-
 /** Refresh only the brand rows (sidebar and/or picker), never the search box. */
 function renderBrandLists() {
   for (const host of $$(".brand-list-host")) host.innerHTML = V.brandList(f, brandQuery, showAllBrands);
@@ -284,7 +267,6 @@ window.addEventListener("popstate", () => {
 function openDetail(p, opts) {
   closeMenu();
   current = p;
-  loadDescription(p);
   openSheet("detail", V.detail(p), opts);
 }
 

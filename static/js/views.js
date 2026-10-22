@@ -6,10 +6,6 @@ import * as cart from "./cart.js";
 
 const HTR = "https://htreviews.org/tobaccos/";
 
-// HTReviews descriptions by HTR id, filled in by app.js: {en, ru}, or
-// "loading" while the request is out.
-export const DESC = new Map();
-
 const initials = (s) =>
   String(s)
     .split(/\s+/)
@@ -18,12 +14,15 @@ const initials = (s) =>
     .join("")
     .toUpperCase();
 
-export const thumb = (p, size = 84) =>
+// mark: show New / Restocked as a caption on the picture (cards only).
+export const thumb = (p, size = 84, mark = false) =>
   `<div class="thumb">${
     p.img
       ? `<img src="${esc(p.img)}" alt="" loading="lazy" decoding="async" width="${size}" height="${size}" onerror="this.nextElementSibling.hidden=false;this.remove()">`
       : ""
-  }<span class="ph"${p.img ? " hidden" : ""}>${esc(initials(p.n))}</span></div>`;
+  }<span class="ph"${p.img ? " hidden" : ""}>${esc(initials(p.n))}</span>${
+    mark && p.isNew ? `<span class="mark new" title="New arrival"></span>` : mark && p.isBack ? `<span class="mark back" title="Back in stock"></span>` : ""
+  }</div>`;
 
 // The badge shows the score: the HTReviews average adjusted for how many
 // people rated it (build.py). The raw average is on the product page.
@@ -68,9 +67,9 @@ function sizeButton(s) {
   const label = `${s.g ? `<span class="w">${weight(s.g)}</span>` : ""}<span class="p">${money(s.p)}</span>${was}`;
   if (!s.st) return `<span class="size out" title="Sold out">${label}</span>`;
   const q = cart.qtyOf(s.id);
-  return `<button type="button" class="size${q ? " in" : ""}${s.rp ? " sale" : ""}" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}<span class="plus">${
-    q ? `${icon("check", "xs")}${q > 1 ? q : ""}` : icon("plus", "xs")
-  }</span></button>`;
+  return `<button type="button" class="size${q ? " in" : ""}${s.rp ? " sale" : ""}" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}${
+    q ? `<span class="q">${icon("check", "xs")}${q > 1 ? q : ""}</span>` : ""
+  }</button>`;
 }
 
 /** The list view's add button: one size adds straight away, several open a picker. */
@@ -84,20 +83,19 @@ function addButton(p) {
 
 export function card(p, list = false) {
   const h = p.h;
-  const fl = flags(p, DATA.reviewMode);
-  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l)])}</span>${fl ? `<span class="c-flags">${fl}</span>` : ""}</div>`;
+  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span></div>`;
   const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : "";
   const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
   if (list)
     return `<article ${attrs}>
-  ${thumb(p, 44)}
+  ${thumb(p, 44, true)}
   <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub}</div>
   ${tags || `<div class="tags"></div>`}
   <div class="c-meta"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""}</span>${ratingBadge(p)}</div>
   ${addButton(p)}
 </article>`;
   return `<article ${attrs}>
-  ${thumb(p)}
+  ${thumb(p, 84, true)}
   <div class="c-main">
     <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     ${sub}
@@ -114,7 +112,7 @@ export function sizeMenu(p) {
       const q = cart.qtyOf(s.id);
       return `<button type="button" data-act="add" data-sku="${s.id}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b>${
         s.g ? `<small>${per100(s.p / s.g)}</small>` : "<small></small>"
-      }<span class="plus">${q ? `${icon("check", "xs")}${q}` : icon("plus", "xs")}</span></button>`;
+      }<span class="q">${q ? `${icon("check", "xs")}${q}` : ""}</span></button>`;
     })
     .join("")}`;
 }
@@ -183,14 +181,6 @@ export function detail(p) {
       ? `Marked by hand as not on HTReviews.`
       : `No automatic match.`;
 
-  const d = h ? DESC.get(h.id) : null;
-  const desc =
-    d === "loading"
-      ? `<div class="d-desc loading"><div class="bar"></div><div class="bar" style="width:55%"></div></div>`
-      : d?.en
-        ? `<p class="d-desc">${esc(d.en)}</p>`
-        : "";
-
   const fl = flags(p, true);
   return {
     cls: "detail",
@@ -199,8 +189,8 @@ export function detail(p) {
         ${h?.ru && h.ru !== p.n ? `<div class="d-ru">${esc(h.ru)}</div>` : ""}
         <div class="d-sub dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), esc(DATA.brands[p.b]?.country || "")])}</div>
         ${fl ? `<div class="d-flags">${fl}</div>` : ""}
+        ${h?.d ? `<p class="d-desc">${esc(h.d)}</p>` : ""}
       </div></div>
-      ${desc}
       ${p.nt ? `<p class="notes">${esc(p.nt)}</p>` : ""}
       ${rating}
       <div class="d-block"><h3>Sizes at World Hookah Market</h3><div class="d-sizes">${sizes}</div></div>
@@ -326,13 +316,13 @@ function moreSections(f) {
   const nNew = counts(f, "isNew", (p) => (p.isNew ? ["y"] : [])).get("y") || 0;
   const nBack = counts(f, "isBack", (p) => (p.isBack ? ["y"] : [])).get("y") || 0;
   const since = trackingNote();
-  const sw = (key, label, hint, count) =>
-    `<label class="switch"><span class="sw-text"><span class="sw-label">${label}${count != null ? `<span class="n">${count}</span>` : ""}</span>${hint ? `<small>${hint}</small>` : ""}</span><input type="checkbox" data-f="${key}" ${f[key] ? "checked" : ""}></label>`;
+  const sw = (key, label, hint, count, dot = "") =>
+    `<label class="switch"><span class="sw-text"><span class="sw-label">${dot ? `<span class="dot" style="--c:${dot}"></span>` : ""}${label}${count != null ? `<span class="n">${count}</span>` : ""}</span>${hint ? `<small>${hint}</small>` : ""}</span><input type="checkbox" data-f="${key}" ${f[key] ? "checked" : ""}></label>`;
   return `
   <div class="fsec"><h4>Availability</h4>
     ${sw("stock", "In stock only")}
-    ${sw("isNew", "New arrivals", "First listed in the last 14 days", nNew)}
-    ${sw("isBack", "Back in stock", "Restocked in the last 7 days", nBack)}
+    ${sw("isNew", "New arrivals", "First listed in the last 14 days", nNew, "var(--accent)")}
+    ${sw("isBack", "Back in stock", "Restocked in the last 7 days", nBack, "var(--good)")}
     ${since ? `<p class="hint">WHM doesn't publish listing dates; this app has tracked new listings and restocks since ${since}.</p>` : ""}
   </div>
   <div class="fsec"><h4>Strength</h4><div class="fchips">${STRENGTHS.map((s, i) => chip(esc(s) + n(sc.get(i + 1) || 0), `data-f="strength" data-v="${i + 1}"`, f.strength.has(i + 1), "", !sc.get(i + 1))).join("")}</div></div>
@@ -372,8 +362,8 @@ export function quickbar(f, active, anyActive) {
     chip("Russian", `data-f="origin" data-v="ru"`, f.origin === "ru"),
     chip(`<span class="clip">${groups.length ? esc(groups.join(", ")) : "Flavor"}</span>${caret}`, `data-act="sec" data-sec="flavor"`, groups.length > 0),
     chip("In stock", `data-f="stock"`, f.stock),
-    nNew || f.isNew ? chip(`New${n(nNew)}`, `data-f="isNew"`, f.isNew) : "",
-    nBack || f.isBack ? chip(`Back in stock${n(nBack)}`, `data-f="isBack"`, f.isBack) : "",
+    nNew || f.isNew ? chip(`New${n(nNew)}`, `data-f="isNew"`, f.isNew, `<span class="dot" style="--c:var(--accent)"></span>`) : "",
+    nBack || f.isBack ? chip(`Back in stock${n(nBack)}`, `data-f="isBack"`, f.isBack, `<span class="dot" style="--c:var(--good)"></span>`) : "",
     anyActive ? `<button type="button" class="chip clear-chip" data-act="reset">Clear all</button>` : "",
   ].join("");
 }
@@ -384,7 +374,7 @@ export function cartView() {
   if (!rows.length)
     return {
       title: "Shopping list",
-      body: `<div class="empty"><h3>Your list is empty</h3><p>Tap a size or <b>+</b> on a flavor to add it.<br>Then send the whole list to your World Hookah Market cart.</p></div>`,
+      body: `<div class="empty"><h3>Your list is empty</h3><p>Tap a size on a flavor to add it.<br>Then send the whole list to your World Hookah Market cart.</p></div>`,
     };
   let total = 0;
   const body = rows

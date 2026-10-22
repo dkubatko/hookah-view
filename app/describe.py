@@ -1,10 +1,11 @@
-"""Flavor descriptions from HTReviews, fetched when someone opens a flavor.
+"""Flavor descriptions from HTReviews.
 
 The list API the crawl uses has no description; each flavor page has a short
-one (in Russian) under the title.  Fetching ~1,800 pages on every crawl would
-be slow and rude, so a description is fetched the first time a flavor is
-opened, translated with ModernMT and kept in ``descriptions.json``.  Pages
-with no description are remembered too, and checked again after a while.
+one (in Russian) under the title.  After every rebuild, pages of matched
+flavors that have no cached description are fetched, the texts translated
+with ModernMT in batches, and everything kept in ``descriptions.json``, so
+each page is read once and each text paid for once.  Pages with no
+description are remembered too and looked at again after a while.
 """
 from __future__ import annotations
 
@@ -24,10 +25,11 @@ log = logging.getLogger(__name__)
 
 CACHE_FILE = "descriptions.json"
 RETRY_EMPTY = 14 * 86400  # look again for a description that wasn't there
-RETRY_FAILED = 3600  # page or translation failed: try again soon
+RETRY_FAILED = 3600  # page fetch failed: try again soon
+CONCURRENCY = 3
+BATCH = 32  # ModernMT phrases per request
 
 _cache: dict[str, dict] | None = None
-_inflight: dict[int, asyncio.Task] = {}
 
 
 def cache() -> dict[str, dict]:
@@ -37,71 +39,105 @@ def cache() -> dict[str, dict]:
     return _cache
 
 
+def text(htr_id: int) -> str:
+    """English description if translated, else the Russian one, else ''."""
+    e = cache().get(str(htr_id)) or {}
+    return e.get("en") or e.get("ru") or ""
+
+
 def parse(page: str) -> str:
     m = re.search(r'<div class="object_card_discr">\s*(.*?)\s*</div>', page, re.S)
     if not m:
         return ""
     # Newlines in the markup are just source formatting; only <br> breaks a line.
-    text = re.sub(r"\s+", " ", m.group(1))
-    text = re.sub(r"\s*<br\s*/?>\s*", "\n", text)
-    text = html.unescape(re.sub(r"<[^>]+>", "", text))
-    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
+    t = re.sub(r"\s+", " ", m.group(1))
+    t = re.sub(r"\s*<br\s*/?>\s*", "\n", t)
+    t = html.unescape(re.sub(r"<[^>]+>", "", t))
+    return "\n".join(line.strip() for line in t.splitlines() if line.strip())
 
 
-async def _translate(client: httpx.AsyncClient, text: str) -> str | None:
-    if not config.MODERNMT_API_KEY:
-        return None
+def _needs_fetch(entry: dict | None, now: float) -> bool:
+    if not entry:
+        return True
+    age = now - entry.get("at", 0)
+    if entry.get("err"):
+        return age > RETRY_FAILED
+    if entry.get("ru") or entry.get("en"):
+        return False
+    return age > RETRY_EMPTY
+
+
+async def _fetch(client: httpx.AsyncClient, slug: str) -> dict:
+    entry: dict = {"at": time.time()}
+    try:
+        r = await client.get(f"{BASE}/tobaccos/{slug}")
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        log.warning("HTR description %s failed: %s", slug, e)
+        return {**entry, "err": True}
+    t = parse(r.text)
+    if not t:
+        return entry
+    return {**entry, "en": t} if not has_cyrillic(t) else {**entry, "ru": t}
+
+
+async def _translate(client: httpx.AsyncClient, texts: list[str]) -> list[str | None]:
+    params = [("source", "ru"), ("target", "en")] + [("q", q) for q in texts]
     try:
         r = await client.get(
-            "https://api.modernmt.com/translate",
-            params={"source": "ru", "target": "en", "q": text},
-            headers={"MMT-ApiKey": config.MODERNMT_API_KEY},
+            "https://api.modernmt.com/translate", params=params, headers={"MMT-ApiKey": config.MODERNMT_API_KEY}
         )
         r.raise_for_status()
-        return (r.json()["data"].get("translation") or "").strip() or None
+        data = r.json()["data"]
+        if isinstance(data, dict):
+            data = [data]
+        return [(d.get("translation") or "").strip() or None for d in data]
     except (httpx.HTTPError, KeyError, ValueError) as e:
-        log.warning("ModernMT description failed: %s", e)
-        return None
+        log.warning("ModernMT descriptions failed: %s", e)
+        return [None] * len(texts)
 
 
-async def _fetch(htr_id: int, slug: str) -> dict:
-    entry = {"at": time.time(), "ru": "", "en": "", "ok": True}
-    async with httpx.AsyncClient(headers={"User-Agent": config.USER_AGENT}, timeout=20) as client:
-        try:
-            r = await client.get(f"{BASE}/tobaccos/{slug}")
-            r.raise_for_status()
-        except httpx.HTTPError as e:
-            log.warning("HTR description %s failed: %s", slug, e)
-            return {**entry, "ok": False}
-        text = parse(r.text)
-        if not text:
-            return entry
-        if not has_cyrillic(text):
-            return {**entry, "en": text}
-        en = await _translate(client, text)
-        return {**entry, "ru": text, "en": en or "", "ok": en is not None}
-
-
-def _fresh(entry: dict | None) -> bool:
-    if not entry:
-        return False
-    age = time.time() - entry.get("at", 0)
-    if not entry.get("ok", True):
-        return age < RETRY_FAILED
-    return bool(entry.get("en") or entry.get("ru")) or age < RETRY_EMPTY
-
-
-async def get(htr_id: int, slug: str) -> dict:
-    """``{"en": str, "ru": str}``; both empty if HTR has no description."""
+async def fill(flavors: list[tuple[int, str]], progress=None) -> int:
+    """Fetch and translate descriptions for ``[(htr id, slug), …]`` that
+    aren't cached yet.  Returns how many descriptions were added or
+    translated."""
     c = cache()
-    key = str(htr_id)
-    entry = c.get(key)
-    if not _fresh(entry):
-        task = _inflight.get(htr_id)
-        if task is None:
-            task = _inflight[htr_id] = asyncio.create_task(_fetch(htr_id, slug))
-            task.add_done_callback(lambda _: _inflight.pop(htr_id, None))
-        # Only empty or failed entries are refetched, so nothing is lost.
-        entry = c[key] = await task
-        await asyncio.to_thread(store.save, CACHE_FILE, c)
-    return {"en": entry.get("en") or "", "ru": entry.get("ru") or ""}
+    now = time.time()
+    todo = [(i, s) for i, s in flavors if _needs_fetch(c.get(str(i)), now)]
+    changed = 0
+    async with httpx.AsyncClient(headers={"User-Agent": config.USER_AGENT}, timeout=30) as client:
+        if todo:
+            if progress:
+                progress(f"Fetching {len(todo)} flavor descriptions from HTReviews…")
+            sem = asyncio.Semaphore(CONCURRENCY)
+            done = 0
+
+            async def one(htr_id: int, slug: str) -> None:
+                nonlocal done, changed
+                async with sem:
+                    e = await _fetch(client, slug)
+                c[str(htr_id)] = e
+                changed += bool(e.get("ru") or e.get("en"))
+                done += 1
+                if done % 100 == 0:
+                    store.save(CACHE_FILE, c)
+                    if progress:
+                        progress(f"Descriptions: {done}/{len(todo)} pages")
+
+            await asyncio.gather(*(one(i, s) for i, s in todo))
+            store.save(CACHE_FILE, c)
+
+        pending = [k for k, e in c.items() if e.get("ru") and not e.get("en")]
+        if pending and config.MODERNMT_API_KEY:
+            if progress:
+                progress(f"Translating {len(pending)} descriptions…")
+            for i in range(0, len(pending), BATCH):
+                keys = pending[i : i + BATCH]
+                for k, en in zip(keys, await _translate(client, [c[k]["ru"] for k in keys])):
+                    if en:
+                        c[k]["en"] = en
+                        changed += 1
+            store.save(CACHE_FILE, c)
+        elif pending:
+            log.warning("%d descriptions need translation but MODERNMT_API_KEY is not set", len(pending))
+    return changed
