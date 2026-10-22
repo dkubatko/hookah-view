@@ -6,6 +6,10 @@ import * as cart from "./cart.js";
 
 const HTR = "https://htreviews.org/tobaccos/";
 
+// HTReviews descriptions by HTR id, filled in by app.js: {en, ru}, or
+// "loading" while the request is out.
+export const DESC = new Map();
+
 const initials = (s) =>
   String(s)
     .split(/\s+/)
@@ -26,7 +30,7 @@ export const thumb = (p, size = 84) =>
 function ratingBadge(p) {
   if (p.score != null)
     return `<span class="rating" style="--rc:${ratingColor(p.score)}" title="HTReviews ${p.h.r.toFixed(1)} from ${plural(p.h.rc, "rating")}">${icon("star")}${p.score.toFixed(1)}</span>`;
-  return `<span class="rating none">${p.h ? "No ratings" : "Unrated"}</span>`;
+  return `<span class="rating none" title="${p.h ? "On HTReviews, no ratings yet" : "Not on HTReviews"}">–</span>`;
 }
 
 export function strengthBars(st, label = true) {
@@ -47,42 +51,77 @@ function flags(p, approx = false) {
   return out;
 }
 
-function sizeChip(s) {
-  const cls = ["size", s.st ? "" : "out", s.rp ? "sale" : ""].join(" ");
-  const was = s.rp ? `<span class="was">${money(s.rp)}</span>` : "";
-  return `<span class="${cls}">${s.g ? `<span class="w">${weight(s.g)}</span>` : ""}${money(s.p)}${was}</span>`;
-}
-
 const dots = (parts) => parts.filter(Boolean).map((x) => `<span>${x}</span>`).join("");
 
-export function card(p) {
-  const h = p.h;
-  const meta = [];
-  if (h?.st) meta.push(strengthBars(h.st));
-  if (h?.rc) meta.push(`<span>${plural(h.rc, "rating")}</span>`);
-  const fl = flags(p, DATA.reviewMode);
-  const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 2).map(tagChip).join("")}</div>` : "";
-  // With "in stock only" on, sold-out sizes are just noise on the card.
+// With "in stock only" on, sold-out sizes are just noise on the card.
+const cardSizes = (p) => {
   const shown = DATA.stockOnly ? p.s.filter((s) => s.st) : p.s;
-  const sizes = (shown.length ? shown : p.s).slice(0, 5).map(sizeChip).join("");
-  return `<article class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" tabindex="0" role="button">
-  ${thumb(p)}
-  <div class="card-body">
-    <div class="card-title"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
-    <div class="line2"><div class="sub dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l)])}</div>
-    ${meta.length || fl ? `<div class="meta">${meta.join('<span class="sep">·</span>')}${fl}</div>` : ""}</div>
-  </div>
-  <div class="card-foot"><div class="sizes">${sizes}</div>${tags}</div>
-  <div class="card-desk">${h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : ""}</div>
-  <div class="list-right"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${
-    p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""
-  }</span>${ratingBadge(p)}</div>
+  return shown.length ? shown : p.s;
+};
+
+/** Total quantity of a product's sizes in the list; cards re-render when it changes. */
+export const listQty = (p) => p.s.reduce((n, s) => n + cart.qtyOf(s.id), 0);
+
+// A size on a grid card is its own add button.
+function sizeButton(s) {
+  const was = s.rp ? `<s>${money(s.rp)}</s>` : "";
+  const label = `${s.g ? `<span class="w">${weight(s.g)}</span>` : ""}<span class="p">${money(s.p)}</span>${was}`;
+  if (!s.st) return `<span class="size out" title="Sold out">${label}</span>`;
+  const q = cart.qtyOf(s.id);
+  return `<button type="button" class="size${q ? " in" : ""}${s.rp ? " sale" : ""}" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}<span class="plus">${
+    q ? `${icon("check", "xs")}${q > 1 ? q : ""}` : icon("plus", "xs")
+  }</span></button>`;
+}
+
+/** The list view's add button: one size adds straight away, several open a picker. */
+function addButton(p) {
+  const q = listQty(p);
+  if (!p.stock) return `<span class="add-btn none"></span>`;
+  return `<button type="button" class="add-btn${q ? " in" : ""}" data-act="quick" data-k="${esc(p.k)}" aria-label="Add ${esc(p.n)} to your list">${
+    q ? `${icon("check", "sm")}${q > 1 ? `<span>${q}</span>` : ""}` : icon("plus", "sm")
+  }</button>`;
+}
+
+export function card(p, list = false) {
+  const h = p.h;
+  const fl = flags(p, DATA.reviewMode);
+  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l)])}</span>${fl ? `<span class="c-flags">${fl}</span>` : ""}</div>`;
+  const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : "";
+  const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
+  if (list)
+    return `<article ${attrs}>
+  ${thumb(p, 44)}
+  <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub}</div>
+  ${tags || `<div class="tags"></div>`}
+  <div class="c-meta"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""}</span>${ratingBadge(p)}</div>
+  ${addButton(p)}
 </article>`;
+  return `<article ${attrs}>
+  ${thumb(p)}
+  <div class="c-main">
+    <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
+    ${sub}
+  </div>
+  <div class="c-foot"><div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>${tags}</div>
+</article>`;
+}
+
+/** Size picker for the list view's add button. */
+export function sizeMenu(p) {
+  return `<div class="size-menu-h">Add to your list</div>${p.s
+    .filter((s) => s.st)
+    .map((s) => {
+      const q = cart.qtyOf(s.id);
+      return `<button type="button" data-act="add" data-sku="${s.id}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b>${
+        s.g ? `<small>${per100(s.p / s.g)}</small>` : "<small></small>"
+      }<span class="plus">${q ? `${icon("check", "xs")}${q}` : icon("plus", "xs")}</span></button>`;
+    })
+    .join("")}`;
 }
 
 export const skeleton = (n = 8) =>
   Array.from({ length: n }, () =>
-    `<div class="card skel"><div class="thumb"></div><div class="card-body"><div class="bar" style="width:60%"></div><div class="bar" style="width:35%"></div><div class="bar" style="width:80%"></div></div></div>`,
+    `<div class="card skel"><div class="thumb"></div><div class="c-main"><div class="bar" style="width:60%"></div><div class="bar" style="width:35%"></div><div class="bar" style="width:80%"></div></div></div>`,
   ).join("");
 
 // ── detail ─────────────────────────────────────────────────────────────
@@ -144,6 +183,14 @@ export function detail(p) {
       ? `Marked by hand as not on HTReviews.`
       : `No automatic match.`;
 
+  const d = h ? DESC.get(h.id) : null;
+  const desc =
+    d === "loading"
+      ? `<div class="d-desc loading"><div class="bar"></div><div class="bar" style="width:55%"></div></div>`
+      : d?.en
+        ? `<p class="d-desc">${esc(d.en)}</p>`
+        : "";
+
   const fl = flags(p, true);
   return {
     cls: "detail",
@@ -153,6 +200,7 @@ export function detail(p) {
         <div class="d-sub dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), esc(DATA.brands[p.b]?.country || "")])}</div>
         ${fl ? `<div class="d-flags">${fl}</div>` : ""}
       </div></div>
+      ${desc}
       ${p.nt ? `<p class="notes">${esc(p.nt)}</p>` : ""}
       ${rating}
       <div class="d-block"><h3>Sizes at World Hookah Market</h3><div class="d-sizes">${sizes}</div></div>
@@ -336,7 +384,7 @@ export function cartView() {
   if (!rows.length)
     return {
       title: "Shopping list",
-      body: `<div class="empty"><h3>Your list is empty</h3><p>Open a flavor and tap <b>Add</b> on a size.<br>Then send the whole list to your World Hookah Market cart.</p></div>`,
+      body: `<div class="empty"><h3>Your list is empty</h3><p>Tap a size or <b>+</b> on a flavor to add it.<br>Then send the whole list to your World Hookah Market cart.</p></div>`,
     };
   let total = 0;
   const body = rows
