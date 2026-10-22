@@ -14,15 +14,12 @@ const initials = (s) =>
     .join("")
     .toUpperCase();
 
-// mark: show New / Restocked as a caption on the picture (cards only).
-export const thumb = (p, size = 84, mark = false) =>
+export const thumb = (p, size = 84) =>
   `<div class="thumb">${
     p.img
       ? `<img src="${esc(p.img)}" alt="" loading="lazy" decoding="async" width="${size}" height="${size}" onerror="this.nextElementSibling.hidden=false;this.remove()">`
       : ""
-  }<span class="ph"${p.img ? " hidden" : ""}>${esc(initials(p.n))}</span>${
-    mark && p.isNew ? `<span class="mark new" title="New arrival"></span>` : mark && p.isBack ? `<span class="mark back" title="Back in stock"></span>` : ""
-  }</div>`;
+  }<span class="ph"${p.img ? " hidden" : ""}>${esc(initials(p.n))}</span></div>`;
 
 // The badge shows the score: the HTReviews average adjusted for how many
 // people rated it (build.py). The raw average is on the product page.
@@ -83,24 +80,27 @@ function addButton(p) {
 
 export function card(p, list = false) {
   const h = p.h;
-  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span></div>`;
+  // New / Back in stock: metadata on the brand line, dot in the filter chip's colour.
+  const status = p.isNew ? `<span class="status new"><i></i>New</span>` : p.isBack ? `<span class="status back"><i></i>Restocked</span>` : "";
+  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span>${status}</div>`;
   const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : "";
   const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
   if (list)
     return `<article ${attrs}>
-  ${thumb(p, 44, true)}
+  ${thumb(p, 44)}
   <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub}</div>
   ${tags || `<div class="tags"></div>`}
   <div class="c-meta"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""}</span>${ratingBadge(p)}</div>
   ${addButton(p)}
 </article>`;
   return `<article ${attrs}>
-  ${thumb(p, 84, true)}
+  ${thumb(p, 100)}
   <div class="c-main">
     <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     ${sub}
+    ${tags || `<div class="tags"></div>`}
+    <div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>
   </div>
-  <div class="c-foot"><div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>${tags}</div>
 </article>`;
 }
 

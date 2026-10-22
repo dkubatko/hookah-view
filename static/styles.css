@@ -616,28 +616,27 @@ html, body { overscroll-behavior-y: none; }
 .segmented button { padding: 0 4px; }
 
 /* ── product cards ───────────────────────────────────────────────────────
-   Thumb + title block on top, sizes and tags along the bottom.  Nothing
-   optional gets a row of its own: New / Back in stock sits at the end of
-   the brand line and the tags row clips, so cards in a row stay level.
-   Each in-stock size is its own add button. */
+   Picture down the left, the full height of the card; on the right four
+   lines: name and score, brand (and New / Back in stock), flavor tags, and
+   the sizes, which are the add buttons.  Each line is one row high and
+   clips, so cards in a row stay level. */
 .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1080px) { .grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; } }
 
 .card {
   position: relative; min-width: 0;
-  display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 10px 12px;
+  display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px;
   padding: 12px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
   box-shadow: var(--shadow);
   cursor: pointer; text-align: left;
   transition: border-color .15s, background .15s;
-  content-visibility: auto; contain-intrinsic-size: auto 130px;
+  content-visibility: auto; contain-intrinsic-size: auto 126px;
 }
 .card:hover { border-color: var(--line-2); }
 .card.oos { background: color-mix(in srgb, var(--surface) 70%, var(--bg)); }
 .card.oos .thumb img { opacity: .55; filter: grayscale(.4); }
-@media (min-width: 1080px) { .card { grid-template-columns: 72px minmax(0, 1fr); padding: 14px; } .card .thumb { width: 72px; height: 72px; } }
 
 .thumb {
   width: 64px; height: 64px; border-radius: 12px; overflow: hidden;
@@ -646,8 +645,11 @@ html, body { overscroll-behavior-y: none; }
 }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .thumb .ph { font-size: 22px; font-weight: 700; color: var(--muted); opacity: .6; letter-spacing: -.04em; }
+/* grid card: as tall as the text block beside it (square for a one-line name) */
+.grid:not(.list) .thumb { width: 100px; height: auto; min-height: 100px; align-self: stretch; }
 
-.c-main { min-width: 0; align-self: center; display: flex; flex-direction: column; gap: 3px; }
+.c-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.grid:not(.list) .c-main { min-height: 100px; gap: 4px; }
 .c-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .name {
   margin: 0; font-size: 16px; font-weight: 650; line-height: 1.25; letter-spacing: -.01em;
@@ -659,6 +661,10 @@ html, body { overscroll-behavior-y: none; }
 .c-brand > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-brand > span:first-child { flex: none; max-width: 100%; }
 .c-brand b { color: var(--text-2); font-weight: 600; }
+.status { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+.status i { width: 7px; height: 7px; border-radius: 50%; }
+.status.new i { background: var(--accent); }
+.status.back i { background: var(--good); }
 
 .rating {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
@@ -681,11 +687,6 @@ html, body { overscroll-behavior-y: none; }
 }
 .tag::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; border-radius: 50%; background: var(--c, var(--muted)); }
 
-/* New / Back in stock: a dot on the picture's corner, in the colour the
-   matching filter chip carries, so it stays out of the card's text */
-.mark { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
-.mark.new { background: var(--accent); }
-.mark.back { background: var(--good); }
 .sw-label .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); align-self: center; margin-right: -2px; }
 .flag { font-size: 12px; font-weight: 600; white-space: nowrap; }
 .flag.new { color: var(--accent); }
@@ -699,31 +700,29 @@ html, body { overscroll-behavior-y: none; }
 .strength i.on { background: var(--text-2); }
 .strength[data-s="4"] i.on, .strength[data-s="5"] i.on { background: var(--accent); }
 
-/* bottom row: sizes on the left, tags right-aligned.  The row is one line
-   high and clips: tags that don't fit beside the sizes wrap onto a hidden
-   second line (first the extra tags, then the whole group) instead of being
-   cut in half. */
-.c-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; justify-content: space-between; column-gap: 12px; min-width: 0; height: 26px; overflow: hidden; }
-.c-foot .sizes { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.c-foot .tags { flex: 0 1 auto; min-width: 64px; justify-content: flex-end; height: 26px; overflow: hidden; }
-.c-foot .tag { flex: none; }
+/* tags and sizes: one line each; what doesn't fit wraps onto a hidden
+   second line instead of being cut in half */
+.card .tags { height: 26px; overflow: hidden; }
+.card .tag { flex: none; }
+.card .sizes { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; height: 26px; overflow: hidden; }
+/* phones: one column, nothing to keep level, so a third size may take a second line */
+@media (max-width: 639px) { .grid:not(.list) .sizes { height: auto; } }
 .size {
-  display: inline-flex; align-items: center; gap: 4px; border: 0;
-  background: var(--surface-2); color: var(--text);
-  transition: background .15s, box-shadow .15s;
+  display: inline-flex; align-items: center; gap: 4px; line-height: 1;
+  background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text);
+  transition: background .15s, border-color .15s;
 }
 .size .w { color: var(--muted); font-size: 12px; }
 .size .p { font-weight: 600; }
 .size s { color: var(--muted); font-size: 11px; }
-button.size:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
+button.size:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: var(--surface-3); }
 button.size:active { background: var(--accent-soft); }
-.size.in { background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.size.in { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .size .q { display: inline-flex; align-items: center; margin-left: 1px; color: var(--accent); font-size: 11.5px; font-weight: 700; }
 .size .q .ico { stroke-width: 2.6; }
 .size.sale .p { color: var(--good); }
 .size.out { opacity: .5; }
 .size.out .p { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent); }
-.c-foot .sizes { gap: 6px; }
 
 /* ── list view: one line of facts per flavor, fixed columns ─────────────── */
 .grid.list { grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
@@ -734,7 +733,7 @@ button.size:active { background: var(--accent-soft); }
 }
 .grid.list .card:last-child { border-bottom: 0; }
 .grid.list .thumb { width: 44px; height: 44px; border-radius: 9px; }
-.grid.list .mark { top: 3px; right: 3px; width: 9px; height: 9px; }
+.grid.list .status { margin-left: 0; }
 .grid.list .thumb .ph { font-size: 15px; }
 .grid.list .c-main { gap: 2px; }
 .grid.list .name { font-size: 15px; }
