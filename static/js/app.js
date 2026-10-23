@@ -16,7 +16,7 @@ const els = {
   sortLabel: $("#sort-label"),
   sidebar: $("#sidebar"),
   quickbar: $("#quickbar"),
-  sheet: $("#sheet"),
+  sheet: $("#sheet"), // the sheet on top: #sheet, or #sheet2 while a product is stacked over the list
   scrim: $("#scrim"),
   cartCount: $("#cart-count"),
 };
@@ -36,7 +36,7 @@ let section = "all"; // which part of the filters the filter sheet shows
 let sheetKind = null; // "detail" | "filters" | "cart" | "info" | "fix"
 let current = null; // product shown in the detail sheet
 let fixState = null; // { items, q }
-let backTo = null; // sheet to reopen when the current one closes ("cart")
+let under = null; // { kind } while a product sheet is stacked over the shopping list
 let status = {};
 
 // ── rendering ──────────────────────────────────────────────────────────
@@ -91,6 +91,7 @@ function renderFilters() {
     }
     $("[data-act=show]", els.sheet).textContent = results.length ? `Show ${plural(results.length, "flavor")}` : "No matches";
   }
+  $("#sb-open-n").textContent = active || "";
   els.sort.value = f.sort;
   els.sortLabel.textContent = C.SORTS.find(([k]) => k === f.sort)[1];
   $$(".seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view));
@@ -107,9 +108,12 @@ function refreshCards() {
 // ── size menu (behind a card's add button) ─────────────────────────────
 let menu = null; // { el, k }
 function closeMenu() {
-  menu?.el.remove();
+  if (!menu) return;
+  menu.el.remove();
+  menuButton()?.classList.remove("open");
   menu = null;
 }
+const menuButton = () => menu && $(`.card[data-k="${CSS.escape(menu.k)}"] [data-act=quick]`, els.grid);
 function openMenu(btn, p) {
   closeMenu();
   const el = document.createElement("div");
@@ -119,20 +123,22 @@ function openMenu(btn, p) {
   menu = { el, k: p.k };
   placeMenu(btn);
 }
+/** Hang the menu off the button's corner: right edges aligned, just below
+ *  (or above when there's no room), growing out of the button. */
 function placeMenu(btn) {
+  btn.classList.add("open");
   const r = btn.getBoundingClientRect();
   const m = menu.el.getBoundingClientRect();
   const below = r.bottom + 6 + m.height < innerHeight;
+  menu.el.classList.toggle("up", !below);
   menu.el.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
-  menu.el.style.left = `${Math.round(Math.max(8, Math.min(r.right - m.width, innerWidth - m.width - 8)))}px`;
+  menu.el.style.left = `${Math.round(Math.max(8, r.right - m.width))}px`;
 }
 window.addEventListener("scroll", closeMenu, { passive: true });
 window.addEventListener("resize", closeMenu);
 
-/** The card's add button: one size and nothing in the list adds it straight away. */
+/** The card's add button toggles its size menu. */
 function quickAdd(btn, p) {
-  const sizes = p.s.filter((s) => s.st);
-  if (sizes.length === 1 && !V.listQty(p)) return addSku(sizes[0].id);
   if (menu?.k === p.k) return closeMenu();
   openMenu(btn, p);
 }
@@ -245,16 +251,27 @@ function closeSheet({ fromHistory = false } = {}) {
     history.back(); // popstate will call us again
     return;
   }
-  sheetKind = null;
   current = null;
   fixState = null;
-  if (backTo) {
-    // A product opened from the shopping list: closing it returns there.
-    backTo = null;
-    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-    openCart();
+  if (under) {
+    // A product over the shopping list: drop it, the list is still there.
+    const top = els.sheet;
+    const scrim = els.scrim;
+    top.classList.add("closing");
+    scrim.classList.add("closing");
+    setTimeout(() => {
+      top.hidden = true;
+      scrim.hidden = true;
+      top.innerHTML = "";
+    }, 200);
+    els.sheet = $("#sheet");
+    els.scrim = $("#scrim");
+    sheetKind = under.kind;
+    under = null;
+    refreshCart();
     return;
   }
+  sheetKind = null;
   els.sheet.classList.add("closing");
   els.scrim.classList.add("closing");
   document.body.classList.remove("locked");
@@ -268,7 +285,8 @@ function closeSheet({ fromHistory = false } = {}) {
 }
 
 window.addEventListener("popstate", () => {
-  if (sheetKind && !history.state?.sheet) {
+  if (under && history.state?.sheet !== "over") closeSheet({ fromHistory: true });
+  else if (sheetKind && !history.state?.sheet) {
     closeSheet({ fromHistory: true });
     // Back restored the URL from before the sheet opened; filters changed
     // inside the sheet must be written back.
@@ -281,6 +299,26 @@ function openDetail(p, opts) {
   closeMenu();
   current = p;
   openSheet("detail", V.detail(p), opts);
+}
+
+/** Open a product on top of the shopping list, which stays as it is. */
+function openOverCart(p) {
+  under = { kind: sheetKind };
+  els.sheet = $("#sheet2");
+  els.scrim = $("#scrim2");
+  current = p;
+  const v = V.detail(p);
+  sheetKind = "detail";
+  els.sheet.className = `sheet ${v.cls}`;
+  els.sheet.innerHTML = `<div class="sheet-grab"></div>
+    <div class="sheet-head"><h2></h2><button class="sheet-close" data-act="close" aria-label="Close">${icon("x")}</button></div>
+    <div class="sheet-body">${v.body}</div>`;
+  els.sheet.hidden = false;
+  els.scrim.hidden = false;
+  els.sheet.classList.remove("closing");
+  els.scrim.classList.remove("closing");
+  history.pushState({ sheet: "over" }, "", location.href.split("#")[0] + `#p=${encodeURIComponent(p.k)}`);
+  setTimeout(() => els.sheet.focus({ preventScroll: true }), 50);
 }
 
 function openFromHash() {
@@ -327,42 +365,47 @@ async function openFix() {
   if (matchMedia("(hover: hover)").matches) setTimeout(() => $("#fix-q")?.focus(), 50);
 }
 
-// drag-down to dismiss on touch screens
+// drag-down to dismiss on touch screens (either sheet; only the top one can be reached)
 const sheetDrag = (function () {
   let y0 = null;
   let dy = 0;
+  const sheets = [$("#sheet"), $("#sheet2")];
   const reset = () => {
     y0 = null;
-    els.sheet.style.transition = "";
-    els.sheet.style.translate = "";
-  };
-  els.sheet.addEventListener("pointerdown", (e) => {
-    if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button") || matchMedia("(min-width:1080px)").matches) return;
-    y0 = e.clientY;
-    dy = 0;
-    try {
-      els.sheet.setPointerCapture(e.pointerId);
-    } catch {
-      /* pointer already gone */
+    for (const s of sheets) {
+      s.style.transition = "";
+      s.style.translate = "";
     }
-    els.sheet.style.transition = "none";
-  });
-  els.sheet.addEventListener("pointermove", (e) => {
-    if (y0 == null) return;
-    dy = Math.max(0, e.clientY - y0);
-    els.sheet.style.translate = `0 ${dy}px`;
-  });
-  const end = () => {
-    if (y0 == null) return;
-    y0 = null;
-    els.sheet.style.transition = "translate .2s";
-    els.sheet.style.translate = "";
-    if (dy > 90) closeSheet();
   };
-  els.sheet.addEventListener("pointerup", end);
-  els.sheet.addEventListener("pointercancel", end);
-  // Leaving the app mid-drag never delivers pointerup; don't stay "dragging".
-  els.sheet.addEventListener("lostpointercapture", end);
+  for (const el of sheets) {
+    el.addEventListener("pointerdown", (e) => {
+      if (!e.target.closest(".sheet-grab, .sheet-head") || e.target.closest("button") || matchMedia("(min-width:1080px)").matches) return;
+      y0 = e.clientY;
+      dy = 0;
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+      el.style.transition = "none";
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.clientY - y0);
+      el.style.translate = `0 ${dy}px`;
+    });
+    const end = () => {
+      if (y0 == null) return;
+      y0 = null;
+      el.style.transition = "translate .2s";
+      el.style.translate = "";
+      if (dy > 90) closeSheet();
+    };
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+    // Leaving the app mid-drag never delivers pointerup; don't stay "dragging".
+    el.addEventListener("lostpointercapture", end);
+  }
   return { reset };
 })();
 
@@ -498,7 +541,8 @@ $$(".seg button").forEach((b) =>
 
 $("#btn-cart").addEventListener("click", openCart);
 $("#btn-info").addEventListener("click", openInfo);
-els.scrim.addEventListener("click", () => closeSheet());
+$("#scrim").addEventListener("click", () => closeSheet());
+$("#scrim2").addEventListener("click", () => closeSheet());
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && menu) closeMenu();
   else if (e.key === "Escape" && sheetKind) closeSheet();
@@ -554,10 +598,8 @@ document.addEventListener("click", async (e) => {
     f.groups.clear();
     apply();
   } else if (act === "show") closeSheet();
-  else if (act === "open") {
-    backTo = sheetKind === "cart" ? "cart" : null;
-    openDetail(C.DATA.byKey.get(a.dataset.k));
-  } else if (act === "add") addSku(+a.dataset.sku);
+  else if (act === "open") openOverCart(C.DATA.byKey.get(a.dataset.k));
+  else if (act === "add") addSku(+a.dataset.sku);
   else if (act === "quick") quickAdd(a, C.DATA.byKey.get(a.dataset.k));
   else if (act === "rm") {
     const hit = C.DATA.bySku.get(+a.dataset.sku);
@@ -646,7 +688,7 @@ cart.onChange(() => {
   if (menu) {
     // keep the open size menu in step (and next to its re-rendered button)
     const p = C.DATA.byKey.get(menu.k);
-    const btn = $(`.card[data-k="${CSS.escape(menu.k)}"] [data-act=quick]`, els.grid);
+    const btn = menuButton();
     if (p && btn) {
       menu.el.innerHTML = V.sizeMenu(p);
       placeMenu(btn);

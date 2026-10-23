@@ -79,7 +79,10 @@
     <aside class="sidebar" id="sidebar" aria-label="Filters"></aside>
     <main class="results" id="results">
       <div class="results-head">
-        <div class="results-count" id="count" aria-live="polite"></div>
+        <div class="results-left">
+          <button type="button" class="sb-open" data-act="sidebar" aria-label="Show filters"><svg class="ico sm"><use href="#i-sliders"/></svg>Filters<span class="n" id="sb-open-n"></span></button>
+          <div class="results-count" id="count" aria-live="polite"></div>
+        </div>
         <div class="results-tools">
           <label class="select">
             <svg class="ico"><use href="#i-sort"/></svg>
@@ -101,6 +104,9 @@
 
   <div class="scrim" id="scrim" hidden></div>
   <section class="sheet" id="sheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></section>
+  <!-- a product opened from the shopping list stacks on top of it -->
+  <div class="scrim" id="scrim2" hidden></div>
+  <section class="sheet" id="sheet2" tabindex="-1" role="dialog" aria-modal="true" hidden></section>
   <div class="toast" id="toast" role="status" hidden></div>
   <noscript><p class="empty">This app needs JavaScript.</p></noscript>
 </body>

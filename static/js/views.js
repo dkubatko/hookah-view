@@ -61,16 +61,18 @@ const ribbon = (p) =>
 const badge = (p) =>
   p.isNew ? `<span class="stag new">New</span>` : p.isBack ? `<span class="stag back" title="Back in stock">Restocked</span>` : "";
 
-// Lowest price and one add button (cards and list rows).  One size in stock
-// adds straight away; several, or something already in the list, open the
-// size menu.
+// Price and one add button (cards and list rows); the button always opens
+// the size menu.  Once sizes are in the list, they replace the price.
 function buy(p, lead = "") {
-  const q = listQty(p);
   const inStock = p.s.filter((s) => s.st);
-  if (!inStock.length) return `<div class="buy">${lead}<span class="price out">Sold out</span></div>`;
-  return `<div class="buy">${lead}<span class="price">${inStock.length > 1 ? `<small>from</small> ` : ""}${money(p.pmin)}</span><button type="button" class="add-btn${
-    q ? " in" : ""
-  }" data-act="quick" data-k="${esc(p.k)}" aria-label="Add ${esc(p.n)} to your list">${q ? `${icon("check", "sm")}${q > 1 ? `<span>${q}</span>` : ""}` : icon("plus", "sm")}</button></div>`;
+  const chosen = p.s.filter((s) => cart.qtyOf(s.id));
+  if (!inStock.length && !chosen.length) return `<div class="buy">${lead}<span class="price out">Sold out</span></div>`;
+  const label = chosen.length
+    ? `<span class="price in">${chosen.map((s) => `${weight(s.g) || "1 pc"}${cart.qtyOf(s.id) > 1 ? ` ×${cart.qtyOf(s.id)}` : ""}`).join(" · ")}</span>`
+    : `<span class="price">${inStock.length > 1 ? `<small>from</small> ` : ""}${money(p.pmin)}</span>`;
+  return `<div class="buy">${lead}${label}<button type="button" class="add-btn${chosen.length ? " in" : ""}" data-act="quick" data-k="${esc(
+    p.k,
+  )}" aria-label="Choose a size of ${esc(p.n)}" aria-haspopup="true"><span class="i-plus">${icon("plus", "sm")}</span><span class="i-check">${icon("check", "sm")}</span></button></div>`;
 }
 
 /** The size menu behind an add button: one row per size in stock; a size
@@ -82,7 +84,7 @@ export function sizeMenu(p) {
       const q = cart.qtyOf(s.id);
       const ctl = q
         ? `<div class="qty sm"><button data-act="qty" data-sku="${s.id}" data-q="${q - 1}" aria-label="One less">${icon("minus", "xs")}</button><span>${q}</span><button data-act="qty" data-sku="${s.id}" data-q="${q + 1}" aria-label="One more">${icon("plus", "xs")}</button></div>`
-        : `<button type="button" class="sm-plus" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)}">${icon("plus", "sm")}</button>`;
+        : `<button type="button" class="add-btn" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)}">${icon("plus", "sm")}</button>`;
       return `<div class="sm-row${q ? " in" : ""}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b>${ctl}</div>`;
     })
     .join("");
@@ -350,7 +352,6 @@ export function quickbar(f, active, anyActive) {
   // One bar: every chip shows its current value, so there's no separate
   // "applied filters" row.
   return [
-    `<button type="button" class="chip icon-chip desk" data-act="sidebar" aria-label="Show filters" title="Show filters">${icon("chev", "sm")}</button>`,
     `<button type="button" class="chip icon-chip${active ? " on" : ""}" data-act="filters" aria-label="All filters">${icon("sliders", "sm")}${active ? `<span class="n">${active}</span>` : ""}</button>`,
     chip(`<span class="clip">${f.brands.size ? esc(brands) : "Brand"}</span>${caret}`, `data-act="sec" data-sec="brands"`, f.brands.size > 0),
     chip(`${icon("star", "xs")}${ratingLabel(f)}${caret}`, `data-act="sec" data-sec="rating"`, !!(f.rmin || f.rcmin)),
