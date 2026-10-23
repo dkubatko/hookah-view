@@ -128,7 +128,9 @@ function openMenu(btn, p) {
 function placeMenu(btn) {
   btn.classList.add("open");
   const r = btn.getBoundingClientRect();
-  const m = menu.el.getBoundingClientRect();
+  // Layout size, not getBoundingClientRect: the opening animation scales the
+  // menu, which would shift it off the button's edge.
+  const m = { width: menu.el.offsetWidth, height: menu.el.offsetHeight };
   const below = r.bottom + 6 + m.height < innerHeight;
   menu.el.classList.toggle("up", !below);
   menu.el.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
