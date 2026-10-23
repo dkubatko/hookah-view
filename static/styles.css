@@ -741,23 +741,25 @@ html, body { overscroll-behavior-y: none; }
 .add-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .add-btn.in { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 
-/* the size menu: a row per size, same − n + control as the shopping list */
+/* the size menu: a row per size; the right column is fixed so the + and the
+   − n + stepper (same height) line up from row to row */
 .size-menu {
-  position: fixed; z-index: 35; width: 264px; padding: 4px;
+  position: fixed; z-index: 35; width: 284px; padding: 4px;
   background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow-lg);
   animation: fade .12s ease;
 }
-.sm-row { display: grid; grid-template-columns: 50px 46px 1fr auto; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 10px; border-radius: 9px; font-size: 14px; }
-.sm-row.in { background: var(--accent-soft); }
-.sm-row + .sm-row { margin-top: 2px; }
+.sm-row { display: grid; grid-template-columns: 46px 46px minmax(0, 1fr) 84px; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 10px; border-radius: 9px; font-size: 14px; }
+.sm-row + .sm-row { border-top: 1px solid var(--line); border-radius: 0; }
 .sm-row .w { color: var(--muted); }
-.sm-row small { color: var(--muted); font-size: 12px; white-space: nowrap; }
-.sm-plus { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+.sm-row.in .w, .sm-row.in b { color: var(--accent); }
+.sm-row small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-plus, .qty.sm { justify-self: end; height: 32px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface-2); }
+.sm-plus { width: 32px; color: var(--text); display: grid; place-items: center; }
 .sm-plus:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .sm-plus .ico { stroke-width: 2.2; }
-.qty.sm { background: var(--surface); border: 1px solid var(--line-2); border-radius: 9px; }
-.qty.sm button { width: 28px; height: 30px; }
-.qty.sm span { min-width: 18px; font-size: 13.5px; }
+.qty.sm { width: 84px; display: grid; grid-template-columns: 1fr auto 1fr; border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.qty.sm button { width: auto; height: 30px; color: var(--text-2); }
+.qty.sm span { min-width: 18px; font-size: 13.5px; color: var(--text); }
 
 /* ── list view: one row per flavor, fixed columns ────────────────────────
    Thumb, name and brand, (tags), score, price and the same add button as

@@ -84,7 +84,7 @@ export function sizeMenu(p) {
         ? `<div class="qty sm"><button data-act="qty" data-sku="${s.id}" data-q="${q - 1}" aria-label="One less">${icon("minus", "xs")}</button><span>${q}</span><button data-act="qty" data-sku="${s.id}" data-q="${q + 1}" aria-label="One more">${icon("plus", "xs")}</button></div>`
         : `<button type="button" class="sm-plus" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)}">${icon("plus", "sm")}</button>`;
       return `<div class="sm-row${q ? " in" : ""}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b><small>${
-        s.g ? per100(s.p / s.g) : ""
+        s.g ? `$${Math.round((s.p / s.g) * 100)}/100g` : ""
       }</small>${ctl}</div>`;
     })
     .join("");
