@@ -2,10 +2,9 @@
 
 The list API the crawl uses has no description; each flavor page has a short
 one (in Russian) under the title.  After every rebuild, pages of matched
-flavors that have no cached description are fetched, the texts translated
-with ModernMT in batches, and everything kept in ``descriptions.json``, so
-each page is read once and each text paid for once.  Pages with no
-description are remembered too and looked at again after a while.
+flavors that have no cached description are fetched and kept in
+``descriptions.json``, so each page is read once.  Pages with no description
+are remembered too and looked at again after a while.
 """
 from __future__ import annotations
 
@@ -14,7 +13,6 @@ import html
 import logging
 import re
 import time
-from urllib.parse import quote
 
 import httpx
 
@@ -28,9 +26,6 @@ CACHE_FILE = "descriptions.json"
 RETRY_EMPTY = 14 * 86400  # look again for a description that wasn't there
 RETRY_FAILED = 3600  # page fetch failed: try again soon
 CONCURRENCY = 3
-# ModernMT only takes GET; Cyrillic URL-encodes to 6 bytes a character, so
-# batches are cut by encoded size to keep the URL well under server limits.
-BATCH_BYTES = 6000
 
 _cache: dict[str, dict] | None = None
 
@@ -43,9 +38,10 @@ def cache() -> dict[str, dict]:
 
 
 def text(htr_id: int) -> str:
-    """English description if translated, else the Russian one, else ''."""
+    """The description as HTR has it (Russian, or English for the few written
+    in English); '' if there is none."""
     e = cache().get(str(htr_id)) or {}
-    return e.get("en") or e.get("ru") or ""
+    return e.get("ru") or e.get("en") or ""
 
 
 def parse(page: str) -> str:
@@ -84,43 +80,9 @@ async def _fetch(client: httpx.AsyncClient, slug: str) -> dict:
     return {**entry, "en": t} if not has_cyrillic(t) else {**entry, "ru": t}
 
 
-async def _translate(client: httpx.AsyncClient, texts: list[str]) -> list[str | None]:
-    params = [("source", "ru"), ("target", "en")] + [("q", q) for q in texts]
-    try:
-        r = await client.get(
-            "https://api.modernmt.com/translate", params=params, headers={"MMT-ApiKey": config.MODERNMT_API_KEY}
-        )
-        r.raise_for_status()
-        data = r.json()["data"]
-        if isinstance(data, dict):
-            data = [data]
-        return [(d.get("translation") or "").strip() or None for d in data]
-    except (httpx.HTTPError, KeyError, ValueError) as e:
-        log.warning("ModernMT descriptions failed: %s", e)
-        return [None] * len(texts)
-
-
-def batches(keys: list, text, limit: int = BATCH_BYTES) -> list[list]:
-    """Split keys into runs whose URL-encoded texts stay under ``limit`` bytes."""
-    out: list[list] = []
-    cur: list = []
-    size = 0
-    for k in keys:
-        n = len(quote(text(k))) + 3
-        if cur and size + n > limit:
-            out.append(cur)
-            cur, size = [], 0
-        cur.append(k)
-        size += n
-    if cur:
-        out.append(cur)
-    return out
-
-
 async def fill(flavors: list[tuple[int, str]], progress=None) -> int:
-    """Fetch and translate descriptions for ``[(htr id, slug), …]`` that
-    aren't cached yet.  Returns how many descriptions were added or
-    translated."""
+    """Fetch descriptions for ``[(htr id, slug), …]`` that aren't cached
+    yet.  Returns how many were added."""
     c = cache()
     now = time.time()
     todo = [(i, s) for i, s in flavors if _needs_fetch(c.get(str(i)), now)]
@@ -146,17 +108,4 @@ async def fill(flavors: list[tuple[int, str]], progress=None) -> int:
 
             await asyncio.gather(*(one(i, s) for i, s in todo))
             store.save(CACHE_FILE, c)
-
-        pending = [k for k, e in c.items() if e.get("ru") and not e.get("en")]
-        if pending and config.MODERNMT_API_KEY:
-            if progress:
-                progress(f"Translating {len(pending)} descriptions…")
-            for keys in batches(pending, lambda k: c[k]["ru"]):
-                for k, en in zip(keys, await _translate(client, [c[k]["ru"] for k in keys])):
-                    if en:
-                        c[k]["en"] = en
-                        changed += 1
-            store.save(CACHE_FILE, c)
-        elif pending:
-            log.warning("%d descriptions need translation but MODERNMT_API_KEY is not set", len(pending))
     return changed

@@ -636,7 +636,6 @@ html, body { overscroll-behavior-y: none; }
   box-shadow: var(--shadow);
   cursor: pointer; text-align: left;
   transition: border-color .15s, background .15s;
-  content-visibility: auto; contain-intrinsic-size: auto 126px;
 }
 .card { overflow: hidden; }
 .card:hover { border-color: var(--line-2); }
@@ -657,10 +656,10 @@ html, body { overscroll-behavior-y: none; }
 .grid:not(.list) .c-main { min-height: 100px; gap: 4px; }
 .grid:not(.list) .ftags { margin-top: 1px; }
 .c-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+/* one line, always: the full name is on the product page (and in the tooltip) */
 .name {
-  margin: 0; font-size: 16px; font-weight: 650; line-height: 1.25; letter-spacing: -.01em;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
-  overflow-wrap: anywhere;
+  margin: 0; min-width: 0; font-size: 16px; font-weight: 650; line-height: 1.25; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .c-sub { display: flex; align-items: baseline; gap: 10px; min-width: 0; font-size: 13px; color: var(--muted); line-height: 18px; }
 .c-brand { min-width: 0; flex: 0 1 auto; flex-wrap: nowrap; overflow: hidden; }
@@ -724,10 +723,22 @@ html, body { overscroll-behavior-y: none; }
 
 /* tags and sizes: one line each; what doesn't fit wraps onto a hidden
    second line instead of being cut in half */
-/* sizes: bottom right of the card, clear of the text above */
+/* sizes: bottom right of the card, clear of the text above.  app.js adds
+   .tight when they don't fit the line and .grow when even that isn't enough. */
 .card .sizes { margin-top: auto; padding-top: 10px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; height: 36px; overflow: hidden; }
-/* phones: one column, nothing to keep level, so a third size may take a second line */
-@media (max-width: 639px) { .grid:not(.list) .sizes { height: auto; } }
+.sizes.tight { gap: 4px; }
+.sizes.tight .size { font-size: 12px; }
+.sizes.tight .size-add { padding: 0 6px; gap: 3px; }
+.sizes.tight .size-rm { padding: 0 4px 0 3px; }
+.sizes.tight .size.out { padding: 0 6px; }
+.sizes.tighter { gap: 3px; }
+.sizes.tighter .size { font-size: 11px; }
+.sizes.tighter .size .w { font-size: 10.5px; }
+.sizes.tighter .size-add { padding: 0 5px; gap: 2px; }
+.sizes.tighter .size-rm { padding: 0 3px 0 2px; }
+.sizes.tighter .size.out { padding: 0 5px; }
+.card .sizes.grow { height: auto; flex-wrap: wrap; }
+
 .size {
   display: inline-flex; align-items: stretch; padding: 0; line-height: 1;
   background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text);
@@ -762,11 +773,12 @@ html, body { overscroll-behavior-y: none; }
 .grid.list .thumb { width: 44px; height: 44px; border-radius: 9px; }
 .grid.list .thumb .ph { font-size: 15px; }
 .grid.list .c-main { gap: 2px; }
-.grid.list .name { font-size: 15px; -webkit-line-clamp: 1; line-clamp: 1; }
+.grid.list .name { font-size: 15px; }
 .grid.list .ftags { display: none; }
 .grid.list .rating { margin: 0; }
 .c-right { display: contents; }
 .grid.list .sizes { margin-top: 0; padding-top: 0; justify-content: flex-end; flex-wrap: nowrap; height: auto; overflow: hidden; }
+.grid.list .sizes.grow { flex-wrap: wrap; }
 /* narrow screens: score beside the name, the sizes on a second line under it */
 @media (max-width: 1079px) {
   .grid.list .card { grid-template-areas: "thumb main rating" ". sizes sizes"; row-gap: 6px; }

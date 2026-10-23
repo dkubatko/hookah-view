@@ -89,14 +89,14 @@ export function card(p, list = false) {
   if (list)
     return `<article ${attrs}>
   ${thumb(p, 44)}
-  <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub(badge(p))}</div>
+  <div class="c-main"><h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>${sub(badge(p))}</div>
   ${tags}
   <div class="c-right">${ratingBadge(p)}${sizes}</div>
 </article>`;
   return `<article ${attrs}>
   ${ribbon(p)}${thumb(p, 100)}
   <div class="c-main">
-    <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
+    <div class="c-head"><h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     ${sub("")}
     ${tags}
     ${sizes}

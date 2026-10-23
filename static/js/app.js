@@ -62,9 +62,24 @@ function apply({ keepScroll = false } = {}) {
 function more() {
   if (shown >= results.length) return;
   const next = results.slice(shown, shown + PAGE);
+  const from = els.grid.children.length;
   els.grid.insertAdjacentHTML("beforeend", next.map((p) => V.card(p, view === "list")).join(""));
   shown += next.length;
+  fitSizes([...els.grid.children].slice(from));
 }
+
+/** Every size must stay visible: when a card's sizes don't fit on one line,
+ *  tighten the chips (two steps); only if they still don't, let the line wrap. */
+function fitSizes(cards = [...els.grid.children]) {
+  let rows = cards.map((c) => $(".sizes", c)).filter(Boolean);
+  for (const r of rows) r.classList.remove("tight", "tighter", "grow");
+  const over = (r) => r.scrollHeight > r.clientHeight + 1 || r.scrollWidth > r.clientWidth + 1;
+  for (const step of ["tight", "tighter", "grow"]) {
+    rows = rows.filter(over);
+    for (const r of rows) r.classList.add(step);
+  }
+}
+window.addEventListener("resize", debounce(() => fitSizes(), 150));
 
 function renderFilters() {
   const active = C.activeCount(f);
@@ -97,7 +112,10 @@ function renderFilters() {
 function refreshCards() {
   for (const el of $$(".card[data-k]", els.grid)) {
     const p = C.DATA.byKey.get(el.dataset.k);
-    if (p && +el.dataset.q !== V.listQty(p)) el.outerHTML = V.card(p, view === "list");
+    if (p && +el.dataset.q !== V.listQty(p)) {
+      el.outerHTML = V.card(p, view === "list");
+      fitSizes([els.grid.children[[...els.grid.children].findIndex((x) => x.dataset.k === p.k)]]);
+    }
   }
 }
 

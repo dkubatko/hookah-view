@@ -55,9 +55,8 @@ candidates get a bonus. Weaker matches (< 84) show as "≈ match" and can be rev
 `overrides.json` and survive refreshes.
 
 **Descriptions.** The list API has none, so after each rebuild the HTR pages of
-matched flavors without a cached description are fetched (`app/describe.py`), the
-texts translated with ModernMT in batches and kept in `descriptions.json`; each
-page is read once.
+matched flavors without a cached description are fetched (`app/describe.py`) and
+kept in `descriptions.json`, as written (Russian); each page is read once.
 
 **New / Back in stock.** WHM publishes no dates, so `history.json` records per
 listing when it was first seen, first in stock and in stock since. A flavor is *new*
