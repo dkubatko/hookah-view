@@ -744,15 +744,14 @@ html, body { overscroll-behavior-y: none; }
 /* the size menu: a row per size; the right column is fixed so the + and the
    − n + stepper (same height) line up from row to row */
 .size-menu {
-  position: fixed; z-index: 35; width: 284px; padding: 4px;
+  position: fixed; z-index: 35; width: 236px; padding: 4px;
   background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow-lg);
   animation: fade .12s ease;
 }
-.sm-row { display: grid; grid-template-columns: 46px 46px minmax(0, 1fr) 84px; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 10px; border-radius: 9px; font-size: 14px; }
+.sm-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) 84px; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 10px; border-radius: 9px; font-size: 14px; }
 .sm-row + .sm-row { border-top: 1px solid var(--line); border-radius: 0; }
 .sm-row .w { color: var(--muted); }
 .sm-row.in .w, .sm-row.in b { color: var(--accent); }
-.sm-row small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sm-plus, .qty.sm { justify-self: end; height: 32px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface-2); }
 .sm-plus { width: 32px; color: var(--text); display: grid; place-items: center; }
 .sm-plus:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
