@@ -101,36 +101,6 @@ function refreshCards() {
   }
 }
 
-// ── size picker (list view's add button) ───────────────────────────────
-let menu = null;
-function closeMenu() {
-  menu?.remove();
-  menu = null;
-}
-function openMenu(btn, p) {
-  closeMenu();
-  menu = document.createElement("div");
-  menu.className = "size-menu";
-  menu.innerHTML = V.sizeMenu(p);
-  document.body.append(menu);
-  const r = btn.getBoundingClientRect();
-  const m = menu.getBoundingClientRect();
-  const below = r.bottom + 6 + m.height < innerHeight;
-  menu.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
-  menu.style.left = `${Math.round(Math.max(8, r.right - m.width))}px`;
-}
-window.addEventListener("scroll", closeMenu, { passive: true });
-window.addEventListener("resize", closeMenu);
-
-/** Add a flavor straight from a card: the only size in stock, or pick one. */
-function quickAdd(btn, p) {
-  const sizes = p.s.filter((s) => s.st);
-  if (sizes.length === 1) return addSku(sizes[0].id);
-  if (menu && menu.dataset.k === p.k) return closeMenu();
-  openMenu(btn, p);
-  menu.dataset.k = p.k;
-}
-
 function addSku(sku) {
   cart.add(sku);
   const hit = C.DATA.bySku.get(sku);
@@ -265,7 +235,6 @@ window.addEventListener("popstate", () => {
 });
 
 function openDetail(p, opts) {
-  closeMenu();
   current = p;
   openSheet("detail", V.detail(p), opts);
 }
@@ -487,8 +456,7 @@ $("#btn-cart").addEventListener("click", openCart);
 $("#btn-info").addEventListener("click", openInfo);
 els.scrim.addEventListener("click", () => closeSheet());
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && menu) closeMenu();
-  else if (e.key === "Escape" && sheetKind) closeSheet();
+  if (e.key === "Escape" && sheetKind) closeSheet();
   if (e.key === "/" && !sheetKind && document.activeElement?.tagName !== "INPUT") {
     e.preventDefault();
     els.q.focus();
@@ -503,7 +471,6 @@ document.addEventListener("click", async (e) => {
   const clr = t.closest("[data-clear]");
   if (clr) return clearOne(clr.dataset.clear, clr.dataset.v);
   const a = t.closest("[data-act]");
-  if (menu && !menu.contains(t) && !t.closest("[data-act=quick]")) closeMenu();
   const cardEl = t.closest(".card[data-k]");
   if (cardEl && !(a && cardEl.contains(a))) return openDetail(C.DATA.byKey.get(cardEl.dataset.k));
   if (!a) return;
@@ -536,10 +503,7 @@ document.addEventListener("click", async (e) => {
     f.groups.clear();
     apply();
   } else if (act === "show") closeSheet();
-  else if (act === "add") {
-    addSku(+a.dataset.sku);
-    if (a.closest(".size-menu")) closeMenu();
-  } else if (act === "quick") quickAdd(a, C.DATA.byKey.get(a.dataset.k));
+  else if (act === "add") addSku(+a.dataset.sku);
   else if (act === "qty") {
     cart.setQty(+a.dataset.sku, +a.dataset.q);
   } else if (act === "sent") {

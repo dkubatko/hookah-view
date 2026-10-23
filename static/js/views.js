@@ -69,52 +69,32 @@ function sizeButton(s) {
   }</button>`;
 }
 
-/** The list view's add button: one size adds straight away, several open a picker. */
-function addButton(p) {
-  const q = listQty(p);
-  if (!p.stock) return `<span class="add-btn none"></span>`;
-  return `<button type="button" class="add-btn${q ? " in" : ""}" data-act="quick" data-k="${esc(p.k)}" aria-label="Add ${esc(p.n)} to your list">${
-    q ? `${icon("check", "sm")}${q > 1 ? `<span>${q}</span>` : ""}` : icon("plus", "sm")
-  }</button>`;
-}
+// New / Back in stock: a ribbon across the card's top-left corner.
+const ribbon = (p) =>
+  p.isNew ? `<span class="ribbon new">New</span>` : p.isBack ? `<span class="ribbon back" title="Back in stock">Restocked</span>` : "";
 
 export function card(p, list = false) {
   const h = p.h;
-  // New / Back in stock: metadata on the brand line, dot in the filter chip's colour.
-  const status = p.isNew ? `<span class="status new"><i></i>New</span>` : p.isBack ? `<span class="status back"><i></i>Restocked</span>` : "";
-  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span>${status}</div>`;
-  const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : "";
+  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span></div>`;
+  const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : `<div class="tags"></div>`;
+  const sizes = `<div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>`;
   const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
   if (list)
     return `<article ${attrs}>
-  ${thumb(p, 44)}
+  ${ribbon(p)}${thumb(p, 44)}
   <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub}</div>
-  ${tags || `<div class="tags"></div>`}
-  <div class="c-meta"><span class="price">${p.stock ? money(p.pmin) : "Sold out"}${p.ppg && p.stock ? `<small>${per100(p.ppg)}</small>` : ""}</span>${ratingBadge(p)}</div>
-  ${addButton(p)}
+  ${tags}
+  <div class="c-right">${ratingBadge(p)}${sizes}</div>
 </article>`;
   return `<article ${attrs}>
-  ${thumb(p, 100)}
+  ${ribbon(p)}${thumb(p, 100)}
   <div class="c-main">
     <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     ${sub}
-    ${tags || `<div class="tags"></div>`}
-    <div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>
+    ${tags}
+    ${sizes}
   </div>
 </article>`;
-}
-
-/** Size picker for the list view's add button. */
-export function sizeMenu(p) {
-  return `<div class="size-menu-h">Add to your list</div>${p.s
-    .filter((s) => s.st)
-    .map((s) => {
-      const q = cart.qtyOf(s.id);
-      return `<button type="button" data-act="add" data-sku="${s.id}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b>${
-        s.g ? `<small>${per100(s.p / s.g)}</small>` : "<small></small>"
-      }<span class="q">${q ? `${icon("check", "xs")}${q}` : ""}</span></button>`;
-    })
-    .join("")}`;
 }
 
 export const skeleton = (n = 8) =>
