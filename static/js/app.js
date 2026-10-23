@@ -504,16 +504,18 @@ document.addEventListener("click", async (e) => {
     apply();
   } else if (act === "show") closeSheet();
   else if (act === "add") addSku(+a.dataset.sku);
-  else if (act === "qty") {
+  else if (act === "rm") {
+    const hit = C.DATA.bySku.get(+a.dataset.sku);
+    cart.setQty(+a.dataset.sku, 0);
+    toast(`Removed ${hit.p.n} ${weight(hit.s.g)} from your list`);
+  } else if (act === "qty") {
     cart.setQty(+a.dataset.sku, +a.dataset.q);
-  } else if (act === "sent") {
-    cart.markSent(+a.dataset.sku);
   } else if (act === "send-all") {
     const list = cart.all().filter((i) => C.DATA.bySku.has(i.id));
     if (!list.length) return;
     a.disabled = true;
     const ok = await cart.sendAll(list, (n) => (a.textContent = `Adding ${n + 1} of ${list.length}…`));
-    if (!ok) toast("Your browser blocked the window — use the per-item links instead", 5000);
+    if (!ok) toast("Your browser blocked the WHM window — allow pop-ups for this site and try again", 5000);
     else toast("All items sent to your WHM cart");
     refreshCart();
   } else if (act === "copy") {

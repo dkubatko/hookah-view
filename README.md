@@ -59,6 +59,11 @@ matched flavors without a cached description are fetched (`app/describe.py`), th
 texts translated with ModernMT in batches and kept in `descriptions.json`; each
 page is read once.
 
+**New / Back in stock.** WHM publishes no dates, so `history.json` records per
+listing when it was first seen, first in stock and in stock since. A flavor is *new*
+for 14 days after the first time it could be bought (listings in stock when tracking
+began count as available before), *back in stock* for 7 days after a restock.
+
 **Ratings.** *Best rated* uses a Bayesian average: `(prior·15 + rating·n) / (15 + n)`,
 so a 5.0 from two people doesn't outrank a 4.7 from three hundred.
 

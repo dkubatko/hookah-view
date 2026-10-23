@@ -207,21 +207,32 @@ def build(
         if item and (sc >= 85 or manual):
             by_review[(g["brand"], item["id"])].append(g)
 
-    # ── 5. history: first seen / back in stock ───────────────────────────
+    # ── 5. history: first seen, first available, in stock since ──────────
+    # f: first seen in the catalog; a: first time it was in stock (a listing
+    # that sat sold out for weeks is new when it finally can be bought);
+    # s: in stock since, None while sold out.
     skus = history.setdefault("skus", {})
-    history.setdefault("baseline", now)
+    baseline = history.setdefault("baseline", now)
     for g in merged:
         for s in g["sizes"]:
-            h = skus.setdefault(str(s["id"]), {"f": now, "s": now if s["st"] else None})
-            if s["st"] and not h.get("s"):
-                h["s"] = now
-            elif not s["st"]:
+            h = skus.setdefault(str(s["id"]), {"f": now, "s": None, "a": None})
+            if "a" not in h:
+                # Written before availability was tracked.  A listing that was
+                # in stock when tracking began was available before, as far
+                # as we know; one never seen in stock is new when it arrives.
+                cohort = h["f"] <= baseline + 3600
+                h["a"] = (h["f"] if cohort else h["s"]) if h.get("s") else None
+            if s["st"]:
+                if not h.get("s"):
+                    h["s"] = now
+                if not h.get("a"):
+                    h["a"] = h["s"]
+            else:
                 h["s"] = None
 
     # ── 6. serialise ────────────────────────────────────────────────────
     rated = [it for it, _ in by_id.values() if it.get("rating") and it.get("ratings", 0) >= 5]
     prior = (sum(i["rating"] for i in rated) / len(rated)) if rated else 4.0
-    baseline = history["baseline"]
     products = []
     matched = manual = 0
     for g in merged:
@@ -241,7 +252,7 @@ def build(
             h = _htr_payload(item, by_id[item["id"]][1])
         r, rc = (h["r"], h["rc"]) if h and h["r"] else (None, 0)
         bayes = (prior * PRIOR_WEIGHT + r * rc) / (PRIOR_WEIGHT + rc) if r else None
-        first = min(skus[str(s["id"])]["f"] for s in sizes)
+        avail = min((skus[str(s["id"])]["a"] for s in sizes if skus[str(s["id"])].get("a")), default=None)
         restock = max((skus[str(s["id"])]["s"] or 0) for s in sizes)
         img = next((s["img"] for s in in_stock + sizes if s["img"]), "") or (h["img"] if h else "")
         products.append({
@@ -261,8 +272,8 @@ def build(
             "score": round(bayes, 3) if bayes else None,
             "ms": round(sc) if item else (round(sc) if sc else 0),
             "mo": bool(is_manual),
-            "new": first if first > baseline + 3600 else None,
-            "back": restock if restock and restock - first > 86400 else None,
+            "new": avail if avail and avail > baseline + 3600 else None,
+            "back": restock if restock and avail and restock - avail > 86400 else None,
         })
 
     brands = {}

@@ -2,8 +2,8 @@
 //
 // WooCommerce adds a product with GET /?add-to-cart=<id>&quantity=<n>, using
 // the shopper's own WHM session cookie, so the hand-off has to happen in the
-// shopper's browser: one link per item, or "send all", which walks a single
-// popup window through the add-to-cart URLs and finishes on the WHM cart.
+// shopper's browser: "send" walks a single popup window through the
+// add-to-cart URLs and finishes on the WHM cart.
 
 const KEY = "hs_cart_v1";
 const WHM = "https://worldhookahmarket.com";
@@ -60,7 +60,6 @@ export function clear() {
   write();
 }
 
-export const addUrl = (id, qty) => `${WHM}/cart/?add-to-cart=${id}&quantity=${qty}`;
 export const cartUrl = `${WHM}/cart/`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

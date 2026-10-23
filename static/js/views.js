@@ -38,6 +38,8 @@ export function strengthBars(st, label = true) {
 }
 
 const tagChip = (t) => `<span class="tag" style="--c:${DATA.groupColor[DATA.tag_group[t]] || "var(--muted)"}">${esc(t)}</span>`;
+// On cards and rows the flavor tags are a line of text with a coloured dot each.
+const ftag = (t) => `<span class="ftag" style="--c:${DATA.groupColor[DATA.tag_group[t]] || "var(--muted)"}">${esc(t)}</span>`;
 
 function flags(p, approx = false) {
   let out = "";
@@ -64,25 +66,30 @@ function sizeButton(s) {
   const label = `${s.g ? `<span class="w">${weight(s.g)}</span>` : ""}<span class="p">${money(s.p)}</span>${was}`;
   if (!s.st) return `<span class="size out" title="Sold out">${label}</span>`;
   const q = cart.qtyOf(s.id);
-  return `<button type="button" class="size${q ? " in" : ""}${s.rp ? " sale" : ""}" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}${
+  const add = `<button type="button" class="size-add" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}${
     q ? `<span class="q">${icon("check", "xs")}${q > 1 ? q : ""}</span>` : ""
   }</button>`;
+  if (!q) return `<span class="size${s.rp ? " sale" : ""}">${add}</span>`;
+  return `<span class="size in${s.rp ? " sale" : ""}">${add}<button type="button" class="size-rm" data-act="rm" data-sku="${s.id}" aria-label="Remove ${weight(s.g)} from your list">${icon("x", "xs")}</button></span>`;
 }
 
-// New / Back in stock: a ribbon across the card's top-left corner.
+// New / Back in stock: a ribbon across a card's top-left corner; a small
+// badge on the brand line of a list row.
 const ribbon = (p) =>
   p.isNew ? `<span class="ribbon new">New</span>` : p.isBack ? `<span class="ribbon back" title="Back in stock">Restocked</span>` : "";
+const badge = (p) =>
+  p.isNew ? `<span class="stag new">New</span>` : p.isBack ? `<span class="stag back" title="Back in stock">Restocked</span>` : "";
 
 export function card(p, list = false) {
   const h = p.h;
-  const sub = `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span></div>`;
-  const tags = h?.tags?.length ? `<div class="tags">${h.tags.slice(0, 3).map(tagChip).join("")}</div>` : `<div class="tags"></div>`;
+  const sub = (b) => `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span>${b}</div>`;
+  const tags = `<div class="ftags">${(h?.tags || []).slice(0, 3).map(ftag).join("")}</div>`;
   const sizes = `<div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>`;
   const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
   if (list)
     return `<article ${attrs}>
-  ${ribbon(p)}${thumb(p, 44)}
-  <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub}</div>
+  ${thumb(p, 44)}
+  <div class="c-main"><h3 class="name">${esc(p.n)}</h3>${sub(badge(p))}</div>
   ${tags}
   <div class="c-right">${ratingBadge(p)}${sizes}</div>
 </article>`;
@@ -90,7 +97,7 @@ export function card(p, list = false) {
   ${ribbon(p)}${thumb(p, 100)}
   <div class="c-main">
     <div class="c-head"><h3 class="name">${esc(p.n)}</h3>${ratingBadge(p)}</div>
-    ${sub}
+    ${sub("")}
     ${tags}
     ${sizes}
   </div>
@@ -301,9 +308,9 @@ function moreSections(f) {
   return `
   <div class="fsec"><h4>Availability</h4>
     ${sw("stock", "In stock only")}
-    ${sw("isNew", "New arrivals", "First listed in the last 14 days", nNew, "var(--accent)")}
-    ${sw("isBack", "Back in stock", "Restocked in the last 7 days", nBack, "var(--good)")}
-    ${since ? `<p class="hint">WHM doesn't publish listing dates; this app has tracked new listings and restocks since ${since}.</p>` : ""}
+    ${sw("isNew", "New arrivals", "First available in the last 14 days", nNew, "var(--good)")}
+    ${sw("isBack", "Back in stock", "Restocked in the last 7 days", nBack, "var(--accent)")}
+    ${since ? `<p class="hint">WHM doesn't publish listing dates; this app has tracked availability since ${since}. A flavor is new the first time it can be bought.</p>` : ""}
   </div>
   <div class="fsec"><h4>Strength</h4><div class="fchips">${STRENGTHS.map((s, i) => chip(esc(s) + n(sc.get(i + 1) || 0), `data-f="strength" data-v="${i + 1}"`, f.strength.has(i + 1), "", !sc.get(i + 1))).join("")}</div></div>
   <div class="fsec"><h4>Pack size</h4><div class="fchips">${PACKS.map(([k, label]) => chip(esc(label) + n(pc.get(k) || 0), `data-f="packs" data-v="${k}"`, f.packs.has(k), "", !pc.get(k))).join("")}</div></div>
@@ -342,8 +349,8 @@ export function quickbar(f, active, anyActive) {
     chip("Russian", `data-f="origin" data-v="ru"`, f.origin === "ru"),
     chip(`<span class="clip">${groups.length ? esc(groups.join(", ")) : "Flavor"}</span>${caret}`, `data-act="sec" data-sec="flavor"`, groups.length > 0),
     chip("In stock", `data-f="stock"`, f.stock),
-    nNew || f.isNew ? chip(`New${n(nNew)}`, `data-f="isNew"`, f.isNew, `<span class="dot" style="--c:var(--accent)"></span>`) : "",
-    nBack || f.isBack ? chip(`Back in stock${n(nBack)}`, `data-f="isBack"`, f.isBack, `<span class="dot" style="--c:var(--good)"></span>`) : "",
+    nNew || f.isNew ? chip(`New${n(nNew)}`, `data-f="isNew"`, f.isNew, `<span class="dot" style="--c:var(--good)"></span>`) : "",
+    nBack || f.isBack ? chip(`Back in stock${n(nBack)}`, `data-f="isBack"`, f.isBack, `<span class="dot" style="--c:var(--accent)"></span>`) : "",
     anyActive ? `<button type="button" class="chip clear-chip" data-act="reset">Clear all</button>` : "",
   ].join("");
 }
@@ -361,16 +368,16 @@ export function cartView() {
     .map(({ it, hit }) => {
       if (!hit)
         return `<div class="cart-item"><div class="thumb"><span class="ph">?</span></div><div><div class="t">No longer listed</div><small>WHM product #${it.id}</small></div>
-          <button class="btn sm ghost" data-act="qty" data-sku="${it.id}" data-q="0">${icon("x", "sm")}</button></div>`;
+          <div class="cart-ctl"><button class="cart-rm" data-act="qty" data-sku="${it.id}" data-q="0" aria-label="Remove">${icon("x", "sm")}</button></div></div>`;
       const { p, s } = hit;
       total += s.p * it.qty;
       return `<div class="cart-item">
         ${thumb(p, 52)}
         <div><div class="t">${esc(p.n)}</div>
-          <small>${esc(p.b)}${p.l ? ` · ${esc(p.l)}` : ""} · ${weight(s.g)} · ${money(s.p)}${s.st ? "" : ` · <span class="oos">sold out</span>`}</small>
-          <small><a class="linkish" href="${cart.addUrl(s.id, it.qty)}" target="_blank" rel="noopener" data-act="sent" data-sku="${s.id}">${it.sent ? `${icon("check", "xs")} Sent — add again` : `Add to WHM cart ${icon("ext", "xs")}`}</a></small>
+          <small>${esc(p.b)}${p.l ? ` · ${esc(p.l)}` : ""} · ${weight(s.g)} · ${money(s.p)}${s.st ? "" : ` · <span class="oos">sold out</span>`}${it.sent ? ` · <span class="sent">${icon("check", "xs")} sent to WHM</span>` : ""}</small>
         </div>
-        <div class="qty"><button data-act="qty" data-sku="${s.id}" data-q="${it.qty - 1}" aria-label="One less">${icon("minus", "sm")}</button><span>${it.qty}</span><button data-act="qty" data-sku="${s.id}" data-q="${it.qty + 1}" aria-label="One more">${icon("plus", "sm")}</button></div>
+        <div class="cart-ctl"><div class="qty"><button data-act="qty" data-sku="${s.id}" data-q="${it.qty - 1}" aria-label="One less">${icon("minus", "sm")}</button><span>${it.qty}</span><button data-act="qty" data-sku="${s.id}" data-q="${it.qty + 1}" aria-label="One more">${icon("plus", "sm")}</button></div>
+        <button class="cart-rm" data-act="qty" data-sku="${s.id}" data-q="0" aria-label="Remove">${icon("x", "sm")}</button></div>
       </div>`;
     })
     .join("");
@@ -380,10 +387,9 @@ export function cartView() {
     body: `${body}
       <div class="cart-sum"><span>Estimated total</span><b>${money(total)}</b></div>
       <p class="hint">Prices from World Hookah Market's catalog; shipping and tax are added at checkout.
-      <b>Send all</b> opens one WHM window and adds each item in turn (about 3 seconds each), then shows your cart.
-      If your browser blocks it, use the per-item links.</p>
+      <b>Send to WHM cart</b> opens one WHM window, adds each item in turn (about 3 seconds each) and ends on your cart there.</p>
       <p><button class="linkish" data-act="copy">${icon("copy", "xs")} Copy list as text</button> &nbsp; <button class="linkish" data-act="clear-cart" style="color:var(--bad)">Clear list</button></p>`,
-    foot: `<a class="btn" href="${cart.cartUrl}" target="_blank" rel="noopener">Open WHM cart</a><button class="btn primary" data-act="send-all">${icon("cart", "sm")} Send all to WHM cart</button>`,
+    foot: `<button class="btn primary" data-act="send-all">${icon("cart", "sm")} Send to WHM cart</button>`,
   };
 }
 

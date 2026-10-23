@@ -142,7 +142,9 @@ export function sort(list, how, q = "") {
     new: (a, b) => b.newest - a.newest,
     name: byName,
   }[how] || (() => 0);
-  if (terms.length) return list.sort((a, b) => b.rel - a.rel || cmp(a, b) || byName(a, b));
+  // The chosen sort always applies; how well the name matches the search
+  // only breaks ties, so "Best rated" really is by score.
+  if (terms.length) return list.sort((a, b) => cmp(a, b) || b.rel - a.rel || byName(a, b));
   return list.sort((a, b) => cmp(a, b) || byName(a, b));
 }
 
