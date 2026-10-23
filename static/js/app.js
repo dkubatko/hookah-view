@@ -63,24 +63,9 @@ function apply({ keepScroll = false } = {}) {
 function more() {
   if (shown >= results.length) return;
   const next = results.slice(shown, shown + PAGE);
-  const from = els.grid.children.length;
   els.grid.insertAdjacentHTML("beforeend", next.map((p) => V.card(p, view === "list")).join(""));
   shown += next.length;
-  fitSizes([...els.grid.children].slice(from));
 }
-
-/** Every size must stay visible: when a card's sizes don't fit on one line,
- *  tighten the chips (two steps); only if they still don't, let the line wrap. */
-function fitSizes(cards = [...els.grid.children]) {
-  let rows = cards.map((c) => $(".sizes", c)).filter(Boolean);
-  for (const r of rows) r.classList.remove("tight", "tighter", "grow");
-  const over = (r) => r.scrollHeight > r.clientHeight + 1 || r.scrollWidth > r.clientWidth + 1;
-  for (const step of ["tight", "tighter", "grow"]) {
-    rows = rows.filter(over);
-    for (const r of rows) r.classList.add(step);
-  }
-}
-window.addEventListener("resize", debounce(() => fitSizes(), 150));
 
 function renderFilters() {
   const active = C.activeCount(f);
@@ -113,11 +98,41 @@ function renderFilters() {
 function refreshCards() {
   for (const el of $$(".card[data-k]", els.grid)) {
     const p = C.DATA.byKey.get(el.dataset.k);
-    if (p && +el.dataset.q !== V.listQty(p)) {
-      el.outerHTML = V.card(p, view === "list");
-      fitSizes([els.grid.children[[...els.grid.children].findIndex((x) => x.dataset.k === p.k)]]);
-    }
+    if (p && +el.dataset.q !== V.listQty(p)) el.outerHTML = V.card(p, view === "list");
   }
+}
+
+// ── size menu (behind a card's add button) ─────────────────────────────
+let menu = null; // { el, k }
+function closeMenu() {
+  menu?.el.remove();
+  menu = null;
+}
+function openMenu(btn, p) {
+  closeMenu();
+  const el = document.createElement("div");
+  el.className = "size-menu";
+  el.innerHTML = V.sizeMenu(p);
+  document.body.append(el);
+  menu = { el, k: p.k };
+  placeMenu(btn);
+}
+function placeMenu(btn) {
+  const r = btn.getBoundingClientRect();
+  const m = menu.el.getBoundingClientRect();
+  const below = r.bottom + 6 + m.height < innerHeight;
+  menu.el.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
+  menu.el.style.left = `${Math.round(Math.max(8, Math.min(r.right - m.width, innerWidth - m.width - 8)))}px`;
+}
+window.addEventListener("scroll", closeMenu, { passive: true });
+window.addEventListener("resize", closeMenu);
+
+/** The card's add button: one size and nothing in the list adds it straight away. */
+function quickAdd(btn, p) {
+  const sizes = p.s.filter((s) => s.st);
+  if (sizes.length === 1 && !V.listQty(p)) return addSku(sizes[0].id);
+  if (menu?.k === p.k) return closeMenu();
+  openMenu(btn, p);
 }
 
 function addSku(sku) {
@@ -261,6 +276,7 @@ window.addEventListener("popstate", () => {
 });
 
 function openDetail(p, opts) {
+  closeMenu();
   current = p;
   openSheet("detail", V.detail(p), opts);
 }
@@ -482,7 +498,8 @@ $("#btn-cart").addEventListener("click", openCart);
 $("#btn-info").addEventListener("click", openInfo);
 els.scrim.addEventListener("click", () => closeSheet());
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && sheetKind) closeSheet();
+  if (e.key === "Escape" && menu) closeMenu();
+  else if (e.key === "Escape" && sheetKind) closeSheet();
   if (e.key === "/" && !sheetKind && document.activeElement?.tagName !== "INPUT") {
     e.preventDefault();
     els.q.focus();
@@ -497,6 +514,7 @@ document.addEventListener("click", async (e) => {
   const clr = t.closest("[data-clear]");
   if (clr) return clearOne(clr.dataset.clear, clr.dataset.v);
   const a = t.closest("[data-act]");
+  if (menu && !menu.el.contains(t) && !t.closest("[data-act=quick]")) closeMenu();
   const cardEl = t.closest(".card[data-k]");
   if (cardEl && !(a && cardEl.contains(a))) return openDetail(C.DATA.byKey.get(cardEl.dataset.k));
   if (!a) return;
@@ -533,6 +551,7 @@ document.addEventListener("click", async (e) => {
     backTo = sheetKind === "cart" ? "cart" : null;
     openDetail(C.DATA.byKey.get(a.dataset.k));
   } else if (act === "add") addSku(+a.dataset.sku);
+  else if (act === "quick") quickAdd(a, C.DATA.byKey.get(a.dataset.k));
   else if (act === "rm") {
     const hit = C.DATA.bySku.get(+a.dataset.sku);
     cart.setQty(+a.dataset.sku, 0);
@@ -617,6 +636,15 @@ new IntersectionObserver((entries) => entries.some((x) => x.isIntersecting) && m
 cart.onChange(() => {
   renderCartBadge();
   refreshCards();
+  if (menu) {
+    // keep the open size menu in step (and next to its re-rendered button)
+    const p = C.DATA.byKey.get(menu.k);
+    const btn = $(`.card[data-k="${CSS.escape(menu.k)}"] [data-act=quick]`, els.grid);
+    if (p && btn) {
+      menu.el.innerHTML = V.sizeMenu(p);
+      placeMenu(btn);
+    } else closeMenu();
+  }
   refreshCart();
   if (sheetKind === "detail" && current) updateSheet(V.detail(current));
 });

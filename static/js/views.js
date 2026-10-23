@@ -51,30 +51,8 @@ function flags(p, approx = false) {
 
 const dots = (parts) => parts.filter(Boolean).map((x) => `<span>${x}</span>`).join("");
 
-// With "in stock only" on, sold-out sizes are just noise on the card.  Once a
-// size is in the shopping list, the card shows only the size(s) chosen.
-const cardSizes = (p) => {
-  const chosen = p.s.filter((s) => cart.qtyOf(s.id));
-  if (chosen.length) return chosen;
-  const shown = DATA.stockOnly ? p.s.filter((s) => s.st) : p.s;
-  return shown.length ? shown : p.s;
-};
-
 /** Total quantity of a product's sizes in the list; cards re-render when it changes. */
 export const listQty = (p) => p.s.reduce((n, s) => n + cart.qtyOf(s.id), 0);
-
-// A size on a grid card is its own add button.
-function sizeButton(s) {
-  const was = s.rp ? `<s>${money(s.rp)}</s>` : "";
-  const label = `${s.g ? `<span class="w">${weight(s.g)}</span>` : ""}<span class="p">${money(s.p)}</span>${was}`;
-  if (!s.st) return `<span class="size out" title="Sold out">${label}</span>`;
-  const q = cart.qtyOf(s.id);
-  const add = `<button type="button" class="size-add" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)} for ${money(s.p)} to your list">${label}${
-    q ? `<span class="q">${icon("check", "xs")}${q > 1 ? q : ""}</span>` : ""
-  }</button>`;
-  if (!q) return `<span class="size${s.rp ? " sale" : ""}">${add}</span>`;
-  return `<span class="size in${s.rp ? " sale" : ""}">${add}<button type="button" class="size-rm" data-act="rm" data-sku="${s.id}" aria-label="Remove ${weight(s.g)} from your list">${icon("x", "xs")}</button></span>`;
-}
 
 // New / Back in stock: a ribbon across a card's top-left corner; a small
 // badge on the brand line of a list row.
@@ -83,18 +61,46 @@ const ribbon = (p) =>
 const badge = (p) =>
   p.isNew ? `<span class="stag new">New</span>` : p.isBack ? `<span class="stag back" title="Back in stock">Restocked</span>` : "";
 
+// Lowest price and one add button (cards and list rows).  One size in stock
+// adds straight away; several, or something already in the list, open the
+// size menu.
+function buy(p) {
+  const q = listQty(p);
+  const inStock = p.s.filter((s) => s.st);
+  if (!inStock.length) return `<div class="buy"><span class="price out">Sold out</span></div>`;
+  return `<div class="buy"><span class="price">${inStock.length > 1 ? `<small>from</small> ` : ""}${money(p.pmin)}</span><button type="button" class="add-btn${
+    q ? " in" : ""
+  }" data-act="quick" data-k="${esc(p.k)}" aria-label="Add ${esc(p.n)} to your list">${q ? `${icon("check", "sm")}${q > 1 ? `<span>${q}</span>` : ""}` : icon("plus", "sm")}</button></div>`;
+}
+
+/** The size menu behind an add button. */
+export function sizeMenu(p) {
+  const rows = p.s
+    .filter((s) => s.st)
+    .map((s) => {
+      const q = cart.qtyOf(s.id);
+      return `<div class="sm-row${q ? " in" : ""}">
+        <button type="button" class="sm-add" data-act="add" data-sku="${s.id}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b><small>${
+          s.g ? per100(s.p / s.g) : ""
+        }</small><span class="q">${q ? `${icon("check", "xs")}${q}` : icon("plus", "xs")}</span></button>
+        ${q ? `<button type="button" class="sm-rm" data-act="rm" data-sku="${s.id}" aria-label="Remove ${weight(s.g)} from your list">${icon("x", "xs")}</button>` : ""}
+      </div>`;
+    })
+    .join("");
+  return `<div class="size-menu-h">${esc(p.n)}</div>${rows}`;
+}
+
 export function card(p, list = false) {
   const h = p.h;
   const sub = (b) => `<div class="c-sub"><span class="c-brand dots">${dots([`<b>${esc(p.b)}</b>`, esc(p.l), DATA.reviewMode ? flags(p, true) : ""])}</span>${b}</div>`;
   const tags = `<div class="ftags">${(h?.tags || []).slice(0, 3).map(ftag).join("")}</div>`;
-  const sizes = `<div class="sizes">${cardSizes(p).map(sizeButton).join("")}</div>`;
   const attrs = `class="card${p.stock ? "" : " oos"}" data-k="${esc(p.k)}" data-q="${listQty(p)}" tabindex="0"`;
   if (list)
     return `<article ${attrs}>
   ${thumb(p, 44)}
   <div class="c-main"><h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>${sub(badge(p))}</div>
   ${tags}
-  <div class="c-right">${ratingBadge(p)}${sizes}</div>
+  <div class="c-right">${ratingBadge(p)}${buy(p)}</div>
 </article>`;
   return `<article ${attrs}>
   ${ribbon(p)}${thumb(p, 100)}
@@ -102,7 +108,7 @@ export function card(p, list = false) {
     <div class="c-head"><h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>${ratingBadge(p)}</div>
     ${sub("")}
     ${tags}
-    ${sizes}
+    ${buy(p)}
   </div>
 </article>`;
 }
