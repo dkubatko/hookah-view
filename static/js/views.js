@@ -51,8 +51,11 @@ function flags(p, approx = false) {
 
 const dots = (parts) => parts.filter(Boolean).map((x) => `<span>${x}</span>`).join("");
 
-// With "in stock only" on, sold-out sizes are just noise on the card.
+// With "in stock only" on, sold-out sizes are just noise on the card.  Once a
+// size is in the shopping list, the card shows only the size(s) chosen.
 const cardSizes = (p) => {
+  const chosen = p.s.filter((s) => cart.qtyOf(s.id));
+  if (chosen.length) return chosen;
   const shown = DATA.stockOnly ? p.s.filter((s) => s.st) : p.s;
   return shown.length ? shown : p.s;
 };
