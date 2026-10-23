@@ -123,18 +123,21 @@ function openMenu(btn, p) {
   menu = { el, k: p.k };
   placeMenu(btn);
 }
-/** Hang the menu off the button's corner: right edges aligned, just below
- *  (or above when there's no room), growing out of the button. */
+/** Put the menu under its button (or above when there's no room) with the
+ *  menu's own buttons in line with it, and point the bubble's tip at it. */
+const MENU_INSET = 10; // menu border + padding + row padding, right of the row buttons
+const MENU_GAP = 10; // room for the pointer
 function placeMenu(btn) {
   btn.classList.add("open");
   const r = btn.getBoundingClientRect();
-  // Layout size, not getBoundingClientRect: the opening animation scales the
-  // menu, which would shift it off the button's edge.
+  // Layout size, not getBoundingClientRect: the opening animation scales the menu.
   const m = { width: menu.el.offsetWidth, height: menu.el.offsetHeight };
-  const below = r.bottom + 6 + m.height < innerHeight;
+  const below = r.bottom + MENU_GAP + m.height < innerHeight;
+  const left = Math.max(8, Math.min(r.right + MENU_INSET - m.width, innerWidth - 8 - m.width));
   menu.el.classList.toggle("up", !below);
-  menu.el.style.top = `${Math.round(below ? r.bottom + 6 : r.top - 6 - m.height)}px`;
-  menu.el.style.left = `${Math.round(Math.max(8, r.right - m.width))}px`;
+  menu.el.style.top = `${Math.round(below ? r.bottom + MENU_GAP : r.top - MENU_GAP - m.height)}px`;
+  menu.el.style.left = `${Math.round(left)}px`;
+  menu.el.style.setProperty("--tip", `${Math.round(r.left + r.width / 2 - left)}px`);
 }
 window.addEventListener("scroll", closeMenu, { passive: true });
 window.addEventListener("resize", closeMenu);

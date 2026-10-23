@@ -757,17 +757,25 @@ html, body { overscroll-behavior-y: none; }
 .add-btn.open .i-plus { display: inline-grid; transform: rotate(45deg); }
 .price.in { color: var(--accent); font-size: 13.5px; font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-/* the size menu hangs off its button's corner and uses the same buttons.
-   As wide as its content; rows share the menu's three columns (subgrid) so
-   the + and the − n + stepper line up. */
+/* the size menu: a speech bubble under (or over) its button, whose tip
+   points at it; the menu's own buttons sit in line with the card's.  As
+   wide as its content; rows share the menu's three columns (subgrid) so the
+   + and the − n + stepper line up. */
 .size-menu {
+  --edge: color-mix(in srgb, var(--accent) 40%, var(--line-2));
   position: fixed; z-index: 35; padding: 4px;
   display: grid; grid-template-columns: auto auto auto; column-gap: 16px;
-  background: var(--surface); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line-2)); border-radius: 12px 4px 12px 12px;
+  background: var(--surface); border: 1px solid var(--edge); border-radius: 12px;
   box-shadow: var(--shadow-lg);
-  transform-origin: top right; animation: menu-in .14s var(--ease);
+  transform-origin: var(--tip) 0; animation: menu-in .14s var(--ease);
 }
-.size-menu.up { border-radius: 12px 12px 4px 12px; transform-origin: bottom right; }
+.size-menu::before {
+  content: ""; position: absolute; top: -7px; left: calc(var(--tip) - 6px); width: 12px; height: 12px;
+  background: var(--surface); border: 1px solid var(--edge); border-right: 0; border-bottom: 0;
+  border-radius: 3px 0 0 0; transform: rotate(45deg);
+}
+.size-menu.up { transform-origin: var(--tip) 100%; }
+.size-menu.up::before { top: auto; bottom: -7px; border: 1px solid var(--edge); border-left: 0; border-top: 0; border-radius: 0 0 3px 0; }
 @keyframes menu-in { from { opacity: 0; transform: scale(.94); } }
 .sm-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; height: 42px; padding: 0 5px 0 12px; font-size: 14px; }
 .sm-row + .sm-row { border-top: 1px solid var(--line); }
