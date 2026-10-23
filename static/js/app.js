@@ -23,6 +23,8 @@ const els = {
 
 let f = location.search ? C.fromQuery(location.search) : C.loadPrefs(C.defaults());
 let view = localStorage.getItem("hs_view") || "grid";
+// Desktop: the filter sidebar can be folded away; the quick filter bar takes over.
+document.body.classList.toggle("nosb", localStorage.getItem("hs_sidebar") === "0");
 let results = [];
 let shown = 0;
 let brandQuery = "";
@@ -527,6 +529,11 @@ document.addEventListener("click", async (e) => {
     els.q.value = "";
     els.qClear.hidden = true;
     apply();
+  } else if (act === "sidebar") {
+    const hide = !document.body.classList.contains("nosb");
+    document.body.classList.toggle("nosb", hide);
+    localStorage.setItem("hs_sidebar", hide ? "0" : "1");
+    renderFilters();
   } else if (act === "filters") openFilters("all");
   else if (act === "sec") openFilters(a.dataset.sec);
   else if (act === "toggle-brands") {

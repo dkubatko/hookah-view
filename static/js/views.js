@@ -64,30 +64,30 @@ const badge = (p) =>
 // Lowest price and one add button (cards and list rows).  One size in stock
 // adds straight away; several, or something already in the list, open the
 // size menu.
-function buy(p) {
+function buy(p, lead = "") {
   const q = listQty(p);
   const inStock = p.s.filter((s) => s.st);
-  if (!inStock.length) return `<div class="buy"><span class="price out">Sold out</span></div>`;
-  return `<div class="buy"><span class="price">${inStock.length > 1 ? `<small>from</small> ` : ""}${money(p.pmin)}</span><button type="button" class="add-btn${
+  if (!inStock.length) return `<div class="buy">${lead}<span class="price out">Sold out</span></div>`;
+  return `<div class="buy">${lead}<span class="price">${inStock.length > 1 ? `<small>from</small> ` : ""}${money(p.pmin)}</span><button type="button" class="add-btn${
     q ? " in" : ""
   }" data-act="quick" data-k="${esc(p.k)}" aria-label="Add ${esc(p.n)} to your list">${q ? `${icon("check", "sm")}${q > 1 ? `<span>${q}</span>` : ""}` : icon("plus", "sm")}</button></div>`;
 }
 
-/** The size menu behind an add button. */
+/** The size menu behind an add button: one row per size in stock; a size
+ *  in the list gets the same − n + control as the shopping list. */
 export function sizeMenu(p) {
-  const rows = p.s
+  return p.s
     .filter((s) => s.st)
     .map((s) => {
       const q = cart.qtyOf(s.id);
-      return `<div class="sm-row${q ? " in" : ""}">
-        <button type="button" class="sm-add" data-act="add" data-sku="${s.id}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b><small>${
-          s.g ? per100(s.p / s.g) : ""
-        }</small><span class="q">${q ? `${icon("check", "xs")}${q}` : icon("plus", "xs")}</span></button>
-        ${q ? `<button type="button" class="sm-rm" data-act="rm" data-sku="${s.id}" aria-label="Remove ${weight(s.g)} from your list">${icon("x", "xs")}</button>` : ""}
-      </div>`;
+      const ctl = q
+        ? `<div class="qty sm"><button data-act="qty" data-sku="${s.id}" data-q="${q - 1}" aria-label="One less">${icon("minus", "xs")}</button><span>${q}</span><button data-act="qty" data-sku="${s.id}" data-q="${q + 1}" aria-label="One more">${icon("plus", "xs")}</button></div>`
+        : `<button type="button" class="sm-plus" data-act="add" data-sku="${s.id}" aria-label="Add ${weight(s.g)}">${icon("plus", "sm")}</button>`;
+      return `<div class="sm-row${q ? " in" : ""}"><span class="w">${weight(s.g) || "One size"}</span><b>${money(s.p)}</b><small>${
+        s.g ? per100(s.p / s.g) : ""
+      }</small>${ctl}</div>`;
     })
     .join("");
-  return `<div class="size-menu-h">${esc(p.n)}</div>${rows}`;
 }
 
 export function card(p, list = false) {
@@ -105,10 +105,10 @@ export function card(p, list = false) {
   return `<article ${attrs}>
   ${ribbon(p)}${thumb(p, 100)}
   <div class="c-main">
-    <div class="c-head"><h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>${ratingBadge(p)}</div>
+    <h3 class="name" title="${esc(p.n)}">${esc(p.n)}</h3>
     ${sub("")}
     ${tags}
-    ${buy(p)}
+    ${buy(p, ratingBadge(p))}
   </div>
 </article>`;
 }
@@ -331,7 +331,7 @@ export function filters(f, { section = "all", brandQuery = "", showAllBrands = f
   if (section === "brands") return `<div class="brand-list-host">${brandList(f, brandQuery, showAllBrands)}</div>`;
   if (section === "rating") return ratingSection(f);
   if (section === "flavor") return flavorSection(f);
-  return `${sidebar ? `<div class="fsec-top"><span>Filters</span><button class="linkish" data-act="reset">Reset all</button></div>` : ""}
+  return `${sidebar ? `<div class="fsec-top"><span>Filters</span><span class="fsec-tools"><button class="linkish" data-act="reset">Reset all</button><button type="button" class="sb-toggle" data-act="sidebar" aria-label="Hide filters" title="Hide filters">${icon("chev", "sm")}</button></span></div>` : ""}
     ${originSection(f)}${brandSection(f, brandQuery, showAllBrands, { sidebar, open: brandsOpen })}${ratingSection(f)}${flavorSection(f)}${moreSections(f)}`;
 }
 
@@ -352,6 +352,7 @@ export function quickbar(f, active, anyActive) {
   // One bar: every chip shows its current value, so there's no separate
   // "applied filters" row.
   return [
+    `<button type="button" class="chip icon-chip desk" data-act="sidebar" aria-label="Show filters" title="Show filters">${icon("chev", "sm")}</button>`,
     `<button type="button" class="chip icon-chip${active ? " on" : ""}" data-act="filters" aria-label="All filters">${icon("sliders", "sm")}${active ? `<span class="n">${active}</span>` : ""}</button>`,
     chip(`<span class="clip">${f.brands.size ? esc(brands) : "Brand"}</span>${caret}`, `data-act="sec" data-sec="brands"`, f.brands.size > 0),
     chip(`${icon("star", "xs")}${ratingLabel(f)}${caret}`, `data-act="sec" data-sec="rating"`, !!(f.rmin || f.rcmin)),

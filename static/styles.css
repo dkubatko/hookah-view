@@ -457,6 +457,17 @@ input, select, textarea { font-size: 16px; } /* iOS zooms into anything smaller 
 .segmented button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 
 .fsec-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 0; font-weight: 700; font-size: 15px; }
+.fsec-tools { display: inline-flex; align-items: center; gap: 10px; }
+.sb-toggle { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); display: grid; place-items: center; }
+.sb-toggle .ico { transform: rotate(180deg); }
+.sb-toggle:hover { color: var(--text); border-color: var(--line-2); }
+.icon-chip.desk { display: none; }
+@media (min-width: 1080px) {
+  body.nosb .layout { grid-template-columns: minmax(0, 1fr); }
+  body.nosb .sidebar { display: none; }
+  body.nosb .quickbar { display: flex; }
+  body.nosb .icon-chip.desk { display: inline-flex; }
+}
 .fsec h4.gap, .hint.gap { margin-top: 14px; }
 .fsec .hint { margin-bottom: 0; }
 
@@ -632,8 +643,8 @@ html, body { overscroll-behavior-y: none; }
 
 .card {
   position: relative; min-width: 0;
-  display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px;
-  padding: 12px;
+  display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 11px;
+  padding: 10px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
   box-shadow: var(--shadow);
   cursor: pointer; text-align: left;
@@ -717,6 +728,7 @@ html, body { overscroll-behavior-y: none; }
    instead of being cut in half */
 /* card: lowest price and the add button, bottom right */
 .buy { margin-top: auto; padding-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; height: 40px; }
+.buy .rating { margin: 0 auto 0 0; }
 .price { font-weight: 650; font-size: 14.5px; color: var(--text); white-space: nowrap; }
 .price small { font-weight: 500; font-size: 12px; color: var(--muted); }
 .price.out { color: var(--muted); font-weight: 500; }
@@ -729,25 +741,23 @@ html, body { overscroll-behavior-y: none; }
 .add-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .add-btn.in { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 
-/* the size menu */
+/* the size menu: a row per size, same − n + control as the shopping list */
 .size-menu {
-  position: fixed; z-index: 35; width: 272px; padding: 6px;
+  position: fixed; z-index: 35; width: 264px; padding: 4px;
   background: var(--surface); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: var(--shadow-lg);
   animation: fade .12s ease;
 }
-.size-menu-h { padding: 4px 8px 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-row { display: flex; align-items: center; gap: 2px; }
-.sm-add {
-  flex: 1; min-width: 0; display: grid; grid-template-columns: 58px auto 1fr auto; align-items: center; gap: 8px;
-  height: 40px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; font-size: 14px;
-}
-.sm-add:hover { background: var(--surface-2); }
-.sm-row.in .sm-add { background: var(--accent-soft); }
-.sm-add .w { color: var(--muted); }
-.sm-add small { color: var(--muted); font-size: 12px; }
-.sm-add .q { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 24px; color: var(--accent); font-size: 12px; font-weight: 700; }
-.sm-rm { width: 32px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; }
-.sm-rm:hover { background: var(--surface-2); color: var(--bad); }
+.sm-row { display: grid; grid-template-columns: 50px 46px 1fr auto; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 10px; border-radius: 9px; font-size: 14px; }
+.sm-row.in { background: var(--accent-soft); }
+.sm-row + .sm-row { margin-top: 2px; }
+.sm-row .w { color: var(--muted); }
+.sm-row small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.sm-plus { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text); display: grid; place-items: center; }
+.sm-plus:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.sm-plus .ico { stroke-width: 2.2; }
+.qty.sm { background: var(--surface); border: 1px solid var(--line-2); border-radius: 9px; }
+.qty.sm button { width: 28px; height: 30px; }
+.qty.sm span { min-width: 18px; font-size: 13.5px; }
 
 /* ── list view: one row per flavor, fixed columns ────────────────────────
    Thumb, name and brand, (tags), score, price and the same add button as
