@@ -336,7 +336,9 @@ input[type="range"] { flex: 1; accent-color: var(--accent); height: 28px; }
 .fix-item small { display: block; color: var(--muted); font-size: 12px; }
 
 /* cart */
-.cart-item { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.cart-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.cart-open { min-width: 0; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; border-radius: 10px; }
+button.cart-open:hover .t { color: var(--accent); }
 .cart-item .thumb { width: 52px; height: 52px; border-radius: 10px; }
 .cart-item .t { font-weight: 600; font-size: 15px; line-height: 1.25; }
 .cart-item small { color: var(--muted); font-size: 12.5px; display: block; }

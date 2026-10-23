@@ -367,15 +367,17 @@ export function cartView() {
   const body = rows
     .map(({ it, hit }) => {
       if (!hit)
-        return `<div class="cart-item"><div class="thumb"><span class="ph">?</span></div><div><div class="t">No longer listed</div><small>WHM product #${it.id}</small></div>
+        return `<div class="cart-item"><div class="cart-open"><div class="thumb"><span class="ph">?</span></div><div><div class="t">No longer listed</div><small>WHM product #${it.id}</small></div></div>
           <div class="cart-ctl"><button class="cart-rm" data-act="qty" data-sku="${it.id}" data-q="0" aria-label="Remove">${icon("x", "sm")}</button></div></div>`;
       const { p, s } = hit;
       total += s.p * it.qty;
       return `<div class="cart-item">
-        ${thumb(p, 52)}
-        <div><div class="t">${esc(p.n)}</div>
-          <small>${esc(p.b)}${p.l ? ` · ${esc(p.l)}` : ""} · ${weight(s.g)} · ${money(s.p)}${s.st ? "" : ` · <span class="oos">sold out</span>`}${it.sent ? ` · <span class="sent">${icon("check", "xs")} sent to WHM</span>` : ""}</small>
-        </div>
+        <button type="button" class="cart-open" data-act="open" data-k="${esc(p.k)}" aria-label="Open ${esc(p.n)}">
+          ${thumb(p, 52)}
+          <div><div class="t">${esc(p.n)}</div>
+            <small>${esc(p.b)}${p.l ? ` · ${esc(p.l)}` : ""} · ${weight(s.g)} · ${money(s.p)}${s.st ? "" : ` · <span class="oos">sold out</span>`}${it.sent ? ` · <span class="sent">${icon("check", "xs")} sent to WHM</span>` : ""}</small>
+          </div>
+        </button>
         <div class="cart-ctl"><div class="qty"><button data-act="qty" data-sku="${s.id}" data-q="${it.qty - 1}" aria-label="One less">${icon("minus", "sm")}</button><span>${it.qty}</span><button data-act="qty" data-sku="${s.id}" data-q="${it.qty + 1}" aria-label="One more">${icon("plus", "sm")}</button></div>
         <button class="cart-rm" data-act="qty" data-sku="${s.id}" data-q="0" aria-label="Remove">${icon("x", "sm")}</button></div>
       </div>`;

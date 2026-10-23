@@ -34,6 +34,7 @@ let section = "all"; // which part of the filters the filter sheet shows
 let sheetKind = null; // "detail" | "filters" | "cart" | "info" | "fix"
 let current = null; // product shown in the detail sheet
 let fixState = null; // { items, q }
+let backTo = null; // sheet to reopen when the current one closes ("cart")
 let status = {};
 
 // ── rendering ──────────────────────────────────────────────────────────
@@ -230,6 +231,13 @@ function closeSheet({ fromHistory = false } = {}) {
   sheetKind = null;
   current = null;
   fixState = null;
+  if (backTo) {
+    // A product opened from the shopping list: closing it returns there.
+    backTo = null;
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    openCart();
+    return;
+  }
   els.sheet.classList.add("closing");
   els.scrim.classList.add("closing");
   document.body.classList.remove("locked");
@@ -521,7 +529,10 @@ document.addEventListener("click", async (e) => {
     f.groups.clear();
     apply();
   } else if (act === "show") closeSheet();
-  else if (act === "add") addSku(+a.dataset.sku);
+  else if (act === "open") {
+    backTo = sheetKind === "cart" ? "cart" : null;
+    openDetail(C.DATA.byKey.get(a.dataset.k));
+  } else if (act === "add") addSku(+a.dataset.sku);
   else if (act === "rm") {
     const hit = C.DATA.bySku.get(+a.dataset.sku);
     cart.setQty(+a.dataset.sku, 0);
